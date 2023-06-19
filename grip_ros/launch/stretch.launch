@@ -1,0 +1,103 @@
+<launch>
+  <arg name="rviz"            default="false"/>
+  <arg name="map"             default="false"/>
+  <arg name="voice"             default="true"/>
+
+  <param name="file_path" value="$(find stretch_web_interface)" />
+
+  <!-- CAMERAS -->
+    <!-- REALSENSE D435i -->
+    <include file="$(find stretch_core)/launch/d435i_high_resolution.launch"></include>
+    <!-- <include file="$(find grip_ros)/launch/shoulder_camera.launch"></include> -->
+    
+    <!-- GRIPPER CAMERA -->
+    <include file="$(find grip_ros)/launch/gripper_camera.launch"></include>
+
+    <!-- NAVIGATION CAMERA -->
+    <include file="$(find stretch_web_interface)/launch/navigation_camera.launch"></include>
+  <!-- -->
+
+  <!-- VISUALIZE -->
+    <node name="rviz" pkg="rviz" type="rviz" output="screen" args="-d $(find stretch_web_interface)/rviz/stretch_aruco_test.rviz" if="$(arg rviz)" />
+  <!-- --> 
+
+  <!-- STRETCH DRIVER -->
+    <param name="/stretch_driver/broadcast_odom_tf" type="bool" value="true"/>
+    <param name="/stretch_driver/mode" type="string" value="navigation" />
+    <include file="$(find stretch_core)/launch/stretch_driver.launch" pass_all_args="true"/>
+  <!-- -->
+
+  <!-- ROSBRIDGE -->
+    <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+      <!-- <arg name="ssl" value="true" />
+      <arg name="certfile" value="$(find stretch_web_interface)/certificates/forky.hcrlab.cs.washington.edu+6.pem" />
+      <arg name="keyfile" value="$(find stretch_web_interface)/certificates/forky.hcrlab.cs.washington.edu+6-key.pem" /> -->
+    </include>
+    <node name="tf2_web_republisher" pkg="tf2_web_republisher" type="tf2_web_republisher" respawn="false" output="screen"/>
+  <!-- -->
+
+  <!-- MAPPING -->
+        
+    <!-- CENTERED BASE LINK -->
+    <node name="centered_base_link_tf_publisher" pkg="tf" type="static_transform_publisher" args="-0.1 0 0 0 0 0 1 /base_link /centered_base_link 100" />
+
+    <!-- LASER RANGE FINDER -->
+    <include file="$(find stretch_core)/launch/rplidar.launch" />
+
+    <!-- LASER SCAN MATCHER FOR ODOMETRY -->
+    <include file="$(find stretch_core)/launch/stretch_scan_matcher.launch" />
+
+    <!-- IMU FILTER -->
+    <include file="$(find stretch_core)/launch/imu_filter.launch" />
+
+    <group if="$(arg map)">
+      <!-- LOCALIZATION -->  
+      <include file="$(find amcl)/examples/amcl_diff.launch" />
+      <!-- MAP SERVER -->
+      <arg name="map_yaml" value="$(find stretch_web_interface)/maps/HQ_map.yaml" />
+      <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_yaml)" />
+    </group>
+  
+    <group unless="$(arg map)">
+      <!-- REAL TIME MAPPING -->
+      <node pkg="gmapping" type="slam_gmapping" name="gmapping" output="log" />
+    </group>
+
+  <!-- -->
+  
+  <!-- NAVIGATION -->
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+      <rosparam file="$(find stretch_navigation)/config/common_costmap_params.yaml" command="load" ns="global_costmap" />
+      <rosparam file="$(find stretch_navigation)/config/common_costmap_params.yaml" command="load" ns="local_costmap" />
+      <rosparam file="$(find stretch_navigation)/config/local_costmap_params.yaml" command="load" />
+      <rosparam file="$(find stretch_navigation)/config/global_costmap_params_withmap.yaml" command="load" />
+      <rosparam file="$(find stretch_navigation)/config/base_local_planner_params.yaml" command="load" />
+      <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
+      <param name="base_global_planner" value="global_planner/GlobalPlanner" />
+      <remap from="/cmd_vel" to="/stretch/cmd_vel" />
+    </node>
+
+
+  <!-- ARUCO DETECTION -->
+    <rosparam command="load" file="$(find stretch_core)/config/stretch_marker_dict.yaml" />
+    <node name="detect_aruco_markers" pkg="stretch_core" type="detect_aruco_markers" output="screen"/>
+  <!-- -->
+
+  <!-- VOICE CONTROLL -->
+    <!-- SPEECH RECOGNITION-->
+    <include file="$(find stretch_core)/launch/respeaker.launch" pass_all_args="true"/>
+    <!-- VOICE TELEOP -->
+    <node name="voice_teleop" pkg="stretch_web_interface" type="speech_commands.py" output="screen" if="$(arg voice)"/>
+  <!-- -->
+
+  <!-- XBOX CONTROLLER -->
+   <node name="xbox_controller" pkg="stretch_web_interface" type="xbox_controller_node.py" output="screen"/>
+  
+  <!-- SAVE BASE POSITION -->
+   <!-- <node name="save_pose" pkg="stretch_web_interface" type="save_pose" output="screen"/> -->
+
+   <node name="publish_bin_images" pkg="grip_ros" type="publish_bin_images" output="screen">
+    <param name="depth_topic" value='/camera/aligned_depth_to_color/image_raw' />
+  </node>
+
+</launch>

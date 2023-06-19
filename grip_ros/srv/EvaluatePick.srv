@@ -1,0 +1,10 @@
+string EVAL_SUCCESS=success
+string EVAL_FAILURE_MULTIPICK=fail_multipick
+string EVAL_FAILURE_NOT_PICKED=fail_not_picked
+string EVAL_FAILURE_WRONG_ITEM=fail_wrong_item
+string EVAL_FAILURE_IGNORE=fail_ignore
+
+string code
+string notes
+---
+bool success

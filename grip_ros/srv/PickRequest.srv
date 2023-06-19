@@ -1,0 +1,5 @@
+string bin_id
+uint8 item_id
+string item_description
+---
+bool success

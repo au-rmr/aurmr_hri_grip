@@ -1,0 +1,5 @@
+string bin_id
+int16 magnitude
+string direction
+---
+bool success

@@ -1,0 +1,47 @@
+import smach_ros
+from smach import State, StateMachine
+import rospy
+
+from grip_ros import control_flow as cf, evaluation, motion, stretch
+from grip_ros.srv import ExecutePrimitiveRequest
+from grip_ros.msg import StepTransition
+
+
+def main():
+    rospy.loginfo('Getting robot resources')
+    rospy.init_node("pick")
+
+    simulation = rospy.get_param("/use_sim_time", False)
+    State.simulation = simulation
+
+    robot = stretch.Stretch(in_sim=simulation)
+    session_sm = StateMachine(["done"], input_keys=[], output_keys=[])
+    pick_sm = StateMachine(["done"], input_keys=["request"], output_keys=[])
+
+    prim_serv = cf.PrimitiveExecutionService()
+    step_trans_pub = rospy.Publisher('~step_transition', StepTransition, queue_size=10)
+
+    with session_sm:
+        with pick_sm:
+            cf.splat_auto("SPLAT_PICK", "request", ["target_bin_id", "target_item_id"])
+            StateMachine.add("MOVE_TO_BIN", motion.MoveToBin(robot, step_trans_pub), {"succeeded": "GRASP", "preempted": "done", "aborted": "done"})
+            StateMachine.add("GRASP", motion.Grasp(robot, prim_serv, step_trans_pub), {"succeeded": "PROBE", "preempted": "done", "aborted": "done"})
+            StateMachine.add("PROBE", motion.Probe(robot, prim_serv, step_trans_pub), {"succeeded": "done", "retry": "RESET_FOR_GRASP", "preempted": "done", "aborted": "done"})
+            StateMachine.add("RESET_FOR_GRASP", motion.ResetForGrasp(robot, step_trans_pub), {"succeeded": "GRASP", "preempted": "done", "aborted": "done"})
+
+        StateMachine.add("WAIT_FOR_COMMAND", cf.WaitForPick(), {"pick": "PICK"})
+        StateMachine.add("PICK", pick_sm, {"done": "WAIT_FOR_COMMAND"})
+
+    rospy.loginfo('Beginning session SM')
+
+    sis = smach_ros.IntrospectionServer('session_sm', session_sm, '/session')
+    sis.start()
+
+    outcome = session_sm.execute()
+
+    rospy.spin()
+    sis.stop()
+
+
+if __name__ == '__main__':
+    main()

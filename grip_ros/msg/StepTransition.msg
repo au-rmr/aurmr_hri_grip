@@ -1,0 +1,8 @@
+uint8 PRIMITIVE_TYPE_NONE=0
+uint8 PRIMITIVE_TYPE_GRASP=1
+uint8 PRIMITIVE_TYPE_PROBE=2
+uint8 PRIMITIVE_TYPE_EXTRACT=3
+uint8 available_primitive_type
+string message
+string bin_id
+uint8 object_id

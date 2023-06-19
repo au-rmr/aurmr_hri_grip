@@ -1,0 +1,174 @@
+#!/usr/bin/env python
+
+import rospy
+import message_filters
+import numpy as np
+import cv2
+import json
+import actionlib
+
+from grip_ros.srv import SetBin, GetBinEmbedding, SetBinCrop, AdjustBinCrop
+from grip_ros.msg import CropInfo
+from sensor_msgs.msg import Image, CameraInfo, CompressedImage
+from cv_bridge import CvBridge
+
+
+class PublishBinImagesNode:
+    def __init__(self):
+        self.loop_rate = rospy.Rate(1.0)
+
+        self.rgb_image = None
+        self.depth_image = None
+        self.camera_info = None
+        self.cv_bridge = CvBridge()
+
+        self.service = rospy.Service('~set_bin', SetBin, self.set_bin_callback)
+        self.set_bin_crop_service = rospy.Service('~set_bin_crop', SetBinCrop, self.set_bin_transform_callback)
+        self.adj_bin_crop_service = rospy.Service('~adjust_bin_crop', AdjustBinCrop, self.adjust_bin_transform_callback)
+
+        self.publisher = rospy.Publisher('/binCamera', Image)
+        self.publisher_depth = rospy.Publisher('/binCamera/depth', Image)
+        self.publisher_cmp = rospy.Publisher('/binCamera/compressed', CompressedImage, queue_size=10)
+        self.publisher_info = rospy.Publisher('/binCamera/camera_info', CameraInfo, queue_size=10)
+        self.publisher_crop_info = rospy.Publisher('/binCamera/crop_info', CropInfo, queue_size=10)
+
+        self.camera_rgb_subscriber = message_filters.Subscriber(f'/camera/color/image_raw', Image)
+        self.camera_depth_subscriber = message_filters.Subscriber(rospy.get_param('~depth_topic'), Image)
+        # self.camera_depth_subscriber = message_filters.Subscriber('/camera/aligned_depth_to_color/image_raw', Image)
+        self.camera_info_subscriber = message_filters.Subscriber(f'/camera/color/camera_info', CameraInfo)
+
+        self.camera_synchronizer = message_filters.ApproximateTimeSynchronizer([
+             self.camera_rgb_subscriber, self.camera_depth_subscriber, self.camera_info_subscriber], 10, 1)
+        self.camera_synchronizer.registerCallback(self.camera_callback)
+
+        # TODO: move to config file
+        self.current_bin = "1C"
+        self.enabled_bins = ["1C", "1B", "1A"]
+
+        # TODO: get config/bins.json
+        self.bin_affine_configs = {
+            '1C': {
+                'xxyy': [260,515,540,795],
+                'width': 250,
+                'height': 250
+            },
+            '1B': {
+                'xxyy': [255,775,505,1025],
+                'width': 250,
+                'height': 250
+            },
+            '1A': {
+                'xxyy': [235,1015,485,1265],
+                'width': 250,
+                'height': 250
+            }
+        }
+        self.affine_transforms = {}
+        for bin_id in self.enabled_bins:
+            cfg = self.bin_affine_configs[bin_id]
+            self.affine_transforms[bin_id] = self.build_affine_transform(cfg['xxyy'], cfg['width'], cfg['height'])
+
+    def set_bin_callback(self, req):
+        self.current_bin = req.bin_id
+        return {"success": True}
+
+    def set_bin_transform_callback(self, req):
+        if req.bin_id not in self.enabled_bins:
+            return {"success": False}
+
+        cfg = self.bin_affine_configs[req.bin_id]
+        self.affine_transforms[req.bin_id] = self.build_affine_transform(req.xxyy, cfg['width'], cfg['height'])
+
+        return {"success": True}
+
+    def adjust_bin_transform_callback(self, req):
+        print('adjust_bin_transform_callback')
+        print(req)
+        if req.bin_id == '':
+            req.bin_id = self.current_bin
+
+        if req.bin_id not in self.enabled_bins:
+            return {"success": False}
+
+        if req.direction == 'up':
+            self.bin_affine_configs[req.bin_id]['xxyy'][1] -= req.magnitude
+            self.bin_affine_configs[req.bin_id]['xxyy'][3] -= req.magnitude
+        if req.direction == 'down':
+            self.bin_affine_configs[req.bin_id]['xxyy'][1] += req.magnitude
+            self.bin_affine_configs[req.bin_id]['xxyy'][3] += req.magnitude
+        if req.direction == 'left':
+            self.bin_affine_configs[req.bin_id]['xxyy'][0] -= req.magnitude
+            self.bin_affine_configs[req.bin_id]['xxyy'][2] -= req.magnitude
+        if req.direction == 'right':
+            self.bin_affine_configs[req.bin_id]['xxyy'][0] += req.magnitude
+            self.bin_affine_configs[req.bin_id]['xxyy'][2] += req.magnitude
+
+        cfg = self.bin_affine_configs[req.bin_id]
+        self.affine_transforms[req.bin_id] = self.build_affine_transform(cfg['xxyy'], cfg['width'], cfg['height'])
+
+        return {"success": True}
+
+    def camera_callback(self, ros_rgb_image, ros_depth_image, ros_camera_info):
+        self.camera_info = ros_camera_info
+
+        rgb_image = self.cv_bridge.imgmsg_to_cv2(ros_rgb_image)
+        rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
+        rgb_image = cv2.rotate(rgb_image, cv2.ROTATE_90_CLOCKWISE)
+        self.rgb_image = self.apply_transform(rgb_image, self.current_bin)
+
+        depth_image = self.cv_bridge.imgmsg_to_cv2(ros_depth_image)
+        self.depth_image = depth_image
+
+    def apply_transform(self, src_rgb, bin_id):
+        M = self.affine_transforms[bin_id]
+        cfg = self.bin_affine_configs[bin_id]
+        return cv2.warpAffine(src_rgb, M, (cfg['width'], cfg['height']))
+
+    def build_affine_transform(self, roi_xyxy, des_width, des_height):
+        src_points = [[roi_xyxy[0], roi_xyxy[1]], [roi_xyxy[2], roi_xyxy[1]], [roi_xyxy[2], roi_xyxy[3]]]
+        src_points = np.array(src_points, dtype=np.float32)
+                    
+        des_points = [[0, 0], [des_width, 0], [des_width, des_height]]
+        des_points = np.array(des_points, dtype=np.float32)
+
+        M = cv2.getAffineTransform(src_points, des_points)
+        return M
+
+    def start(self):
+        while not rospy.is_shutdown():
+            if self.rgb_image is not None:
+                stamp = rospy.Time.now()
+                msg = self.cv_bridge.cv2_to_imgmsg(self.rgb_image)
+                msg.header.stamp = stamp
+                self.publisher.publish(msg)
+
+                msg = self.cv_bridge.cv2_to_imgmsg(self.depth_image)
+                msg.header.stamp = stamp
+                self.publisher_depth.publish(msg)
+
+                msg = CompressedImage()
+                msg.header.stamp = stamp
+                msg.format = "jpeg"
+                msg.data = np.array(cv2.imencode('.jpg', self.rgb_image)[1]).tostring()
+                self.publisher_cmp.publish(msg)
+
+                info_msg = CameraInfo()
+                info_msg.height = self.bin_affine_configs[self.current_bin]['height']
+                info_msg.width = self.bin_affine_configs[self.current_bin]['width']
+                info_msg.header.stamp = stamp
+                self.publisher_info.publish(info_msg)
+
+                crop_info_msg = CropInfo()
+                crop_info_msg.header.stamp = stamp
+                crop_info_msg.xxyy = self.bin_affine_configs[self.current_bin]['xxyy']
+                crop_info_msg.width = self.bin_affine_configs[self.current_bin]['width']
+                crop_info_msg.height = self.bin_affine_configs[self.current_bin]['height']
+                self.publisher_crop_info.publish(crop_info_msg)
+
+            self.loop_rate.sleep()
+
+
+if __name__ == '__main__':
+    rospy.init_node('publish_bin_images')
+    node = PublishBinImagesNode()
+    node.start()

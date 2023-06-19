@@ -1,0 +1,4 @@
+string bin_id
+uint16[] xxyy
+---
+bool success

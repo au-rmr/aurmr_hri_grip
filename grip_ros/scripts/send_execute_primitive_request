@@ -1,0 +1,54 @@
+import rospy
+
+from grip_ros.srv import ExecutePrimitiveRequest
+from grip_ros.msg import KeyValue
+
+from sensor_msgs.msg import CompressedImage
+from cv_bridge import CvBridge
+import cv2
+
+cvb = CvBridge()
+
+def image_callback(msg):
+    img = cvb.compressed_imgmsg_to_cv2(msg, desired_encoding='passthrough')
+    # print(img)
+    cv2.imshow("img", img)
+    cv2.waitKey(0)
+    
+
+
+def main():
+    rospy.loginfo('Starting send_exec_primitive_request...')
+    rospy.init_node("send_exec_primitive_request")
+
+
+    # subscriber = rospy.Subscriber("/camera/color/image_raw/compressed",
+    #     CompressedImage, image_callback,  queue_size = 1)
+
+
+    rospy.wait_for_service('/pick/execute_primitive')
+    try:
+        print('sending..')
+        exec_primitive = rospy.ServiceProxy('/pick/execute_primitive', ExecutePrimitiveRequest)
+        resp = exec_primitive("move_to_pose", [
+            KeyValue('joint_arm_l1', '1.0'),
+            KeyValue('joint_arm_l2', '1.0'),
+            KeyValue('joint_arm_l3', '1.0')
+        ])
+        # resp = exec_primitive("move_base", [
+        #     KeyValue('x', '0.0'),
+        #     KeyValue('y', '0.0'),
+        #     KeyValue('ox', '0.0'),
+        #     KeyValue('oy', '0.0'),
+        #     KeyValue('oz', '0.0'),
+        #     KeyValue('w', '3.14'),
+        #     KeyValue('frame_id', 'map')
+        # ])
+        print(f"GOT RESPONSE: {resp}")
+    except rospy.ServiceException as e:
+        print("Service call failed: %s"%e)
+    
+    rospy.spin()
+
+if __name__ == '__main__':
+    main()

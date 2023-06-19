@@ -1,0 +1,14 @@
+<launch>
+  <!-- Always set GUI to false for AWS RoboMaker Simulation
+       Use gui:=true on roslaunch command-line to run with a gui.
+  -->
+  <arg name="output_path" default="./data_collection_output"/>
+  <node name="data_collection" pkg="grip_ros" type="data_collection" output="screen">
+    <param name="output_path" value="$(arg output_path)"/>
+  </node>
+  <!-- -->
+  
+
+  
+
+</launch>

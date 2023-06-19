@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+
+import rospy
+import numpy as np
+import cv2
+
+from grip_ros.srv import SetBin, GetBinEmbedding, SetBinCrop, AdjustBinCrop
+from grip_ros.msg import CropInfo
+from sensor_msgs.msg import Image, CameraInfo, CompressedImage
+from cv_bridge import CvBridge
+
+import torch
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from segment_anything import sam_model_registry, SamPredictor
+from segment_anything.utils.onnx import SamOnnxModel
+
+import onnxruntime
+from onnxruntime.quantization import QuantType
+from onnxruntime.quantization.quantize import quantize_dynamic
+
+
+class SegmentEmbeddingsNode:
+    def __init__(self):
+        self.loop_rate = rospy.Rate(1)
+
+        checkpoint = "/workspace/sam_vit_h_4b8939.pth"
+        model_type = "vit_h"
+        sam = sam_model_registry[model_type](checkpoint=checkpoint)
+        sam.to(device='cuda')
+        self.predictor = SamPredictor(sam)
+
+        self.bin_image = None
+        self.cv_bridge = CvBridge()
+
+        self.embedding_service = rospy.Service('~get_embedding', GetBinEmbedding, self.get_embedding_callback)
+        self.bin_image_subscriber = rospy.Subscriber('/binCamera', Image, self.bin_image_callback)
+    
+    def get_embedding_callback(self, req):
+        if self.bin_image is None:
+            return {
+                "success": False,
+                "message": "No image available"
+            }
+
+        
+        self.predictor.set_image(self.bin_image)
+        image_embedding = self.predictor.get_image_embedding().cpu().numpy()
+        image_embedding_list = image_embedding.flatten().tolist()
+
+
+        return {
+            "success": True,
+            "tensor_shape": image_embedding.shape,
+            "tensor_data": image_embedding_list
+        }
+
+    def bin_image_callback(self, image):
+        rgb_image = self.cv_bridge.imgmsg_to_cv2(image)
+        self.bin_image = rgb_image
+
+    def start(self):
+        rospy.spin()
+        # while not rospy.is_shutdown():
+            # if self.rgb_image is not None:
+            #     stamp = rospy.Time.now()
+            #     self.publisher.publish(self.cv_bridge.cv2_to_imgmsg(self.rgb_image))
+            #     msg = CompressedImage()
+            #     msg.header.stamp = stamp
+            #     msg.format = "jpeg"
+            #     msg.data = np.array(cv2.imencode('.jpg', self.rgb_image)[1]).tostring()
+            #     self.publisher_cmp.publish(msg)
+
+            #     info_msg = CameraInfo()
+            #     info_msg.height = self.bin_affine_configs[self.current_bin]['height']
+            #     info_msg.width = self.bin_affine_configs[self.current_bin]['width']
+            #     info_msg.header.stamp = stamp
+            #     self.publisher_info.publish(info_msg)
+
+            #     crop_info_msg = CropInfo()
+            #     crop_info_msg.header.stamp = stamp
+            #     crop_info_msg.xxyy = self.bin_affine_configs[self.current_bin]['xxyy']
+            #     crop_info_msg.width = self.bin_affine_configs[self.current_bin]['width']
+            #     crop_info_msg.height = self.bin_affine_configs[self.current_bin]['height']
+            #     self.publisher_crop_info.publish(crop_info_msg)
+
+            # self.loop_rate.sleep()
+
+
+if __name__ == '__main__':
+    rospy.init_node('segment_embeddings')
+    print('Starting segment_embeddings service...')
+    node = SegmentEmbeddingsNode()
+    node.start()

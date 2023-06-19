@@ -1,0 +1,104 @@
+import rospy
+import image_geometry
+
+from visualization_msgs.msg import Marker
+from sensor_msgs.msg import CameraInfo
+from geometry_msgs.msg import Point
+
+def main():
+    rospy.init_node("publish_marker")
+    marker_publisher = rospy.Publisher("visualization_marker", Marker, queue_size=1)
+
+    # Build a PinholeCameraModel from a CameraInfo message
+    # camera_info = rospy.wait_for_message("/gripper_camera/camera_info", CameraInfo)
+    # camera_model = image_geometry.PinholeCameraModel()
+    # camera_model.fromCameraInfo(camera_info)
+
+    # print(f"{camera_info.width} {camera_info.height}")
+
+    # # Project pixel to ray and normalize ray
+    # ray = camera_model.projectPixelTo3dRay((camera_info.width/2,camera_info.height/2))
+    # ray = [x/ray[2] for x in ray]
+
+    # Our first point will be at the origin
+    p1 = Point()
+    p1.x = 0
+    p1.y = 0
+    p1.z = 0
+
+    # The second point will be along our ray, 5 units out.
+    p2 = Point()
+    distance = 1
+    p2.x = 0 * distance
+    p2.y = 0 * distance
+    p2.z = 1 * distance
+
+    # Build a Marker message for rviz
+    marker = Marker()
+    marker.header.frame_id = "base_link"
+    marker.header.stamp = rospy.rostime.Time.now()
+    marker.ns = "basic_shapes"
+    marker.id = 0
+    marker.type = Marker.ARROW
+    # marker.type = Marker.SPHERE
+    marker.action = Marker.ADD
+    marker.points = [p1, p2]
+
+    marker.scale.x = 0.01
+    marker.scale.y = 0.01
+    marker.scale.z = 0.04
+
+    marker.color.r = 1.0
+    marker.color.g = 0.0
+    marker.color.b = 0.0
+    marker.color.a = 1.0
+
+
+    marker.lifetime = rospy.rostime.Duration()
+    marker_publisher.publish(marker)
+
+    marker2 = Marker()
+    # marker2.header.frame_id = self.camera_model.tfFrame()
+    marker2.header.frame_id = 'base_link'
+    marker2.header.stamp = rospy.rostime.Time.now()
+    marker2.ns = "basic_shapes"
+    marker2.id = 1
+    marker2.type = Marker.SPHERE
+    marker2.action = Marker.ADD
+
+    # print(f"publishing {camera_point}")
+    marker2.pose.position.x = 0.0;
+    marker2.pose.position.y = 0.0;
+    marker2.pose.position.z = 0.0;
+    marker2.pose.orientation.x = 0.0;
+    marker2.pose.orientation.y = 0.0;
+    marker2.pose.orientation.z = 0.0;
+    marker2.pose.orientation.w = 1.0;
+
+    # marker2.points = [p1, p2]
+    
+
+    # Set the scale of the marker -- 1x1x1 here means 1m on a side
+    marker2.scale.x = 0.05
+    marker2.scale.y = 0.05
+    marker2.scale.z = 0.05
+
+    # Set the color -- be sure to set alpha to something non-zero!
+    marker2.color.r = 0.0
+    marker2.color.g = 1.0
+    marker2.color.b = 0.0
+    marker2.color.a = 1.0
+
+    marker2.lifetime = rospy.rostime.Duration()
+
+    marker_publisher.publish(marker2)
+
+    print(f"Marker published")
+    
+    r = rospy.Rate(10) # 10hz
+    while not rospy.is_shutdown():
+        marker_publisher.publish(marker2)
+        r.sleep()
+
+if __name__ == '__main__':
+    main()

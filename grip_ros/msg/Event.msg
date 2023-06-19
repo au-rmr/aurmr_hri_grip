@@ -1,0 +1,8 @@
+string EVENT_SESSION_START=session_start
+string EVENT_SESSION_END=session_end
+string EVENT_PRIMITIVE_EXEC=primitive_exec
+string EVENT_PICK_START=pick_start
+string EVENT_PICK_EVAL=pick_eval
+string event_type
+KeyValue[] metadata
+time stamp

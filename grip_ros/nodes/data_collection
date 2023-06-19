@@ -1,0 +1,234 @@
+#!/usr/bin/env python
+
+import rospy
+import rosbag
+import message_filters
+import time
+import os
+import json
+
+from sensor_msgs.msg import Image
+
+from grip_ros.msg import Event
+from grip_ros.srv import RecordEvent, RecordImage, RecordImageRequest
+
+
+class DataCollectionNode:
+    def __init__(self, output_path='./data_collection_output'):
+        self.loop_rate = rospy.Rate(4.0)
+        self.output_path = os.path.abspath(output_path)
+        print(self.output_path)
+
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+
+        self._session_name = None
+        self._writing_images = []
+        self._session_event_bag = None
+        self._pick_event_bag = None
+        self._pick_image_bag = None
+        self._pick_events = []
+
+        self.event_service = rospy.Service('~record_event', RecordEvent, self.record_event_callback)
+        self.image_service = rospy.Service('~record_image', RecordImage, self.record_image_callback)
+
+        self.realsense_rgb_image = None
+        self.realsense_depth_image = None
+        self.bin_image = None
+        self.wrist_image = None
+        self.bin_depth_image = None
+
+        self.image_realsense_rgb_subscriber = message_filters.Subscriber(f'/camera/color/image_raw', Image)
+
+        simulation = rospy.get_param("/use_sim_time", False)
+        if simulation:
+            self.image_realsense_depth_subscriber = message_filters.Subscriber(f'/camera/depth/image_raw', Image)
+        else:
+            self.image_realsense_depth_subscriber = message_filters.Subscriber(f'/camera/aligned_depth_to_color/image_raw', Image)
+        
+        self.image_bin_subscriber = rospy.Subscriber("/binCamera", Image, self.bin_image_callback)
+        self.image_bin_depth_subscriber = rospy.Subscriber("/binCamera/depth", Image, self.bin_depth_image_callback)
+        self.image_wrist_subscriber = rospy.Subscriber("/gripper_camera/image_raw", Image, self.wrist_image_callback)
+
+        self.realsense_synchronizer = message_filters.ApproximateTimeSynchronizer([
+             self.image_realsense_rgb_subscriber, self.image_realsense_depth_subscriber], 10, 1)
+        self.realsense_synchronizer.registerCallback(self.realsense_image_callback)
+
+    def get_metadata(self, metadata, key, type, default=None):
+        for x in metadata:
+            if x.key == key:
+                return type(x.value)
+        return default
+
+    def ros_to_json(self, req: RecordEvent):
+        output = {
+            'event_type': req.event.event_type,
+            'timestamp': req.event.stamp.to_sec(),
+            'metadata': {},
+        }
+        for x in req.event.metadata:
+            output['metadata'][x.key] = x.value
+        return output
+
+    def input_camera_to_image(self, input_camera):
+        if input_camera == RecordImageRequest.CAMERA_REALSENSE_RGB:
+            return self.realsense_rgb_image
+        elif input_camera == RecordImageRequest.CAMERA_REALSENSE_DEPTH:
+            return self.realsense_depth_image
+        elif input_camera == RecordImageRequest.CAMERA_BIN:
+            return self.bin_image
+        elif input_camera == RecordImageRequest.CAMERA_BIN_DEPTH:
+            return self.bin_depth_image
+        elif input_camera == RecordImageRequest.CAMERA_WRIST:
+            return self.wrist_image
+        raise ValueError(f'Unknown camera {input_camera}')
+
+    def record_event_callback(self, req: RecordEvent):
+        rospy.loginfo(f'Received event: {self.ros_to_json(req)}')
+
+        if req.event.event_type == Event.EVENT_SESSION_START:
+            rospy.loginfo(f'Session start')
+            assert self._session_event_bag is None
+
+            # Generate session name
+            session_name = self.get_metadata(req.event.metadata, 'name', str, '')
+            if session_name != "":
+                session_name = "_" + session_name
+            session_name = time.strftime("%Y%m%d_%H%M%S") + session_name
+            self._session_name = session_name
+
+            # Create session folder
+            session_folder = os.path.join(self.output_path, session_name)
+            os.mkdir(session_folder)
+            rospy.loginfo(f'Created session folder: {session_folder}')
+
+            # Create session event bag
+            session_event_bag_path = os.path.join(session_folder, 'session_events.bag')
+            self._session_event_bag = rosbag.Bag(session_event_bag_path, 'w')
+
+        if req.event.event_type == Event.EVENT_PICK_START:
+            assert self._pick_event_bag is None
+            assert self._pick_image_bag is None
+
+            item_id_str = self.get_metadata(req.event.metadata, 'item_id', str, '999').zfill(3)
+            pick_name = f"pick_{item_id_str}"
+
+            # Create pick folder
+            pick_folder = os.path.join(self.output_path, self._session_name, pick_name)
+            os.mkdir(pick_folder)
+            rospy.loginfo(f'Created pick folder: {pick_folder}')
+
+            # Create pick event and image bags
+            pick_event_bag_path = os.path.join(pick_folder, 'pick_events.bag')
+            self._pick_event_bag = rosbag.Bag(pick_event_bag_path, 'w')
+            pick_image_bag_path = os.path.join(pick_folder, 'pick_images.bag')
+            self._pick_image_bag = rosbag.Bag(pick_image_bag_path, 'w')
+
+            # self._writing_images.append((RecordImageRequest.CAMERA_REALSENSE_RGB, '/camera/color/image_raw'))
+            # self._writing_images.append((RecordImageRequest.CAMERA_REALSENSE_DEPTH, '/camera/depth/image_raw'))
+            # self._writing_images.append((RecordImageRequest.CAMERA_BIN, '/binCamera'))
+            # self._writing_images.append((RecordImageRequest.CAMERA_WRIST, '/gripper_camera/image_raw'))
+
+        # Write event to session and pick event bags
+        # Note that it's important this happens after EVENT_SESSION_START/EVENT_PICK_START
+        # but before EVENT_PICK_EVAL/EVENT_SESSION_END.
+        if self._pick_event_bag:
+            self._pick_event_bag.write('events', req.event)
+            self._pick_events.append(self.ros_to_json(req))
+        if self._session_event_bag:
+            self._session_event_bag.write('events', req.event)
+
+        if req.event.event_type == Event.EVENT_PICK_EVAL:
+            streamlined = self.get_metadata(req.event.metadata, 'streamlined', str, 'false')
+            if streamlined == 'true':
+                return {'success': True}
+            # Close pick event and image bags
+            assert self._pick_event_bag is not None
+            self._pick_event_bag.close()
+            self._pick_event_bag = None
+            assert self._pick_image_bag is not None
+            try:
+                self._pick_image_bag.close()
+                self._pick_image_bag = None
+            except:
+                rospy.logwarn('Failed to close pick image bag, retrying...')
+                self._pick_image_bag.close()
+                self._pick_image_bag = None
+
+
+            item_id_str = self.get_metadata(req.event.metadata, 'item_id', str, '999').zfill(3)
+            pick_name = f"pick_{item_id_str}"
+
+            # Write json version of pick events and reset the list
+            pick_events_json_path = os.path.join(self.output_path, self._session_name, pick_name, 'pick_events.json')
+            with open(pick_events_json_path, 'w') as f:
+                f.write(json.dumps({'events': self._pick_events}, indent=4))
+            self._pick_events = []
+            self._writing_images = []
+
+        # Clean session up if this was a session end event
+        if req.event.event_type == Event.EVENT_SESSION_END:
+            assert self._session_event_bag is not None
+            self._session_event_bag.close()
+            self._session_event_bag = None
+            self._session_name = None
+
+        return {"success": True}
+
+    def record_image_callback(self, req: RecordImage):
+        recording_tuple = (req.input_camera, req.output_topic, req.continue_recording_for_steps)
+        # was_recording = False
+
+        # # Remove recording_tuple from _writing_images if it's already there
+        # if recording_tuple in self._writing_images:
+        #     was_recording = True
+        #     self._writing_images.remove(recording_tuple)
+        
+        # if req.continue_recording:
+        self._writing_images.append(recording_tuple)
+        
+        # If we're not continuously recording we will just send one image to the pick image bag
+        # if self._pick_image_bag is not None and not req.continue_recording and not was_recording:
+        #     image = self.input_camera_to_image(req.input_camera)
+        #     if image is not None:
+        #         self._pick_image_bag.write(req.output_topic, image, image.header.stamp)
+        
+        return {"success": True}
+
+    def realsense_image_callback(self, ros_rgb_image, ros_depth_image):
+        self.realsense_rgb_image = ros_rgb_image
+        self.realsense_depth_image = ros_depth_image
+    
+    def bin_image_callback(self, ros_image):
+        self.bin_image = ros_image
+
+    def bin_depth_image_callback(self, ros_image):
+        self.bin_depth_image = ros_image
+
+    def wrist_image_callback(self, ros_image):
+        self.wrist_image = ros_image
+
+    def start(self):
+        while not rospy.is_shutdown():
+            if self._pick_image_bag is not None:
+                new_queue = []
+                for recording_tuple in self._writing_images:
+                    input_camera, output_topic, next_steps = recording_tuple
+                    image = self.input_camera_to_image(input_camera)
+                    if image is not None:
+                        self._pick_image_bag.write(output_topic, image, image.header.stamp)
+                    else:
+                        rospy.logwarn(f'Failed to get image for {input_camera}')
+                    if next_steps > 0:
+                        new_queue.append((input_camera, output_topic, next_steps - 1))
+                self._writing_images = new_queue
+
+            self.loop_rate.sleep()
+
+
+if __name__ == '__main__':
+    rospy.init_node('data_collection')
+    output_path = rospy.get_param('/data_collection/output_path', './data_collection_output')
+    rospy.loginfo(f'Starting data collection node w/ output path: {output_path}')
+    node = DataCollectionNode(output_path=output_path)
+    node.start()

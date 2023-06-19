@@ -1,0 +1,63 @@
+import argparse as ap
+import threading
+import rospy
+
+from sensor_msgs.msg import JointState
+
+from hello_helpers import hello_misc as hm
+
+class GotoStartPoseNode(hm.HelloNode):
+    def __init__(self):
+        hm.HelloNode.__init__(self)
+        self.rate = 10.0
+        self.joint_states = None
+        self.joint_states_lock = threading.Lock()
+
+    def joint_states_callback(self, joint_states):
+        with self.joint_states_lock: 
+            self.joint_states = joint_states
+
+        
+        # rospy.loginfo('interrupt received, so shutting down')
+        # wrist_position, wrist_velocity, wrist_effort = hm.get_wrist_state(joint_states)
+        # self.wrist_position = wrist_position
+        # lift_position, lift_velocity, lift_effort = hm.get_lift_state(joint_states)
+        # self.lift_position = lift_position
+    
+    def get_head_pan(self):
+        pan_idx = self.joint_states.name.index('joint_head_pan')
+
+    
+    def move_to_initial_configuration(self):
+        initial_pose = {
+            'joint_head_tilt': 0.0,
+            'joint_head_pan': -3.14/2,
+            'joint_lift': 1.0,
+            'joint_wrist_yaw': 0.0,
+            'joint_arm_l0': 0.0,
+            'joint_arm_l1': 0.0,
+            'joint_arm_l2': 0.0,
+            'joint_arm_l3': 0.0
+        }
+
+        rospy.loginfo('Move to initial arm pose for rotating.')
+        self.move_to_pose(initial_pose)
+    
+    def main(self):
+        hm.HelloNode.main(self, 'goto_start', 'goto_start', wait_for_first_pointcloud=False)
+        # self.joint_states_subscriber = rospy.Subscriber('/stretch/joint_states', JointState, self.joint_states_callback)
+        
+        self.move_to_initial_configuration()
+
+        # rate = rospy.Rate(self.rate)
+        # while not rospy.is_shutdown():
+        #     rate.sleep()
+
+if __name__ == '__main__':
+    try:
+        parser = ap.ArgumentParser(description='Rotate 360 for stretch base.')
+        args, unknown = parser.parse_known_args()
+        node = GotoStartPoseNode()
+        node.main()
+    except KeyboardInterrupt:
+        rospy.loginfo('interrupt received, so shutting down')

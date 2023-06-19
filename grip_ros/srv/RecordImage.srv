@@ -1,0 +1,10 @@
+uint8 CAMERA_REALSENSE_RGB=0
+uint8 CAMERA_REALSENSE_DEPTH=1
+uint8 CAMERA_BIN=2
+uint8 CAMERA_BIN_DEPTH=4
+uint8 CAMERA_WRIST=3
+uint8 input_camera
+string output_topic
+uint8 continue_recording_for_steps
+---
+bool success

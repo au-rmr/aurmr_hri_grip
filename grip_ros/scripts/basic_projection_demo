@@ -1,0 +1,73 @@
+import rospy
+import image_geometry
+
+from visualization_msgs.msg import Marker
+from sensor_msgs.msg import CameraInfo
+from geometry_msgs.msg import Point
+
+def main():
+    rospy.init_node("basic_projection_demo")
+    marker_publisher = rospy.Publisher("visualization_marker", Marker, queue_size=1)
+
+    # Build a PinholeCameraModel from a CameraInfo message
+    camera_info = rospy.wait_for_message("/gripper_camera/camera_info", CameraInfo)
+    camera_model = image_geometry.PinholeCameraModel()
+    camera_model.fromCameraInfo(camera_info)
+
+    print(f"{camera_info.width} {camera_info.height}")
+
+    # Project pixel to ray and normalize ray
+    ray = camera_model.projectPixelTo3dRay((camera_info.width/2,camera_info.height/2))
+    ray = [x/ray[2] for x in ray]
+
+    # Our first point will be at the origin
+    p1 = Point()
+    p1.x = 0
+    p1.y = 0
+    p1.z = 0
+
+    # The second point will be along our ray, 5 units out.
+    p2 = Point()
+    distance = 1
+    p2.x = ray[0] * distance
+    p2.y = ray[1] * distance
+    p2.z = ray[2] * distance
+
+    # Build a Marker message for rviz
+    marker = Marker()
+    marker.header.frame_id = camera_model.tfFrame()
+    marker.header.stamp = rospy.rostime.Time.now()
+    marker.ns = "basic_shapes"
+    marker.id = 0
+    marker.type = Marker.ARROW
+    # marker.type = Marker.SPHERE
+    marker.action = Marker.ADD
+    marker.points = [p1, p2]
+
+    marker.scale.x = 0.01
+    marker.scale.y = 0.01
+    marker.scale.z = 0.04
+
+    # marker.pose.orientation.x = 0.0
+    # marker.pose.orientation.y = 0.0
+    # marker.pose.orientation.z = 0.0
+    # marker.pose.orientation.w = 1.0
+
+    marker.color.r = 1.0
+    marker.color.g = 0.0
+    marker.color.b = 0.0
+    marker.color.a = 1.0
+
+
+    marker.lifetime = rospy.rostime.Duration()
+    marker_publisher.publish(marker)
+
+    print(f"Marker published at {ray} in {camera_model.tfFrame()}")
+    
+    r = rospy.Rate(10) # 10hz
+    while not rospy.is_shutdown():
+        marker_publisher.publish(marker)
+        r.sleep()
+
+if __name__ == '__main__':
+    main()

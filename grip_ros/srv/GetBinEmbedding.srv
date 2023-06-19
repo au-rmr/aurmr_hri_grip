@@ -1,0 +1,5 @@
+---
+bool success
+string message
+int32[] tensor_shape
+float32[] tensor_data
