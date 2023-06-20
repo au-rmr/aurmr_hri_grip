@@ -1,0 +1,289 @@
+.App {
+  text-align: center;
+}
+
+.App-body {
+  max-width: 1284px;
+  margin:0 auto;
+}
+
+.App-header {
+  background: #35373d;
+  color: #fff;
+  border-bottom: 1px solid #1f2124;
+  margin-bottom: 0px;
+  padding:10px 0;
+  height: 35px;
+}
+
+.App-header-content {
+  max-width: 1284px;
+  margin:0 auto;
+}
+
+.App-sidebar {
+  width: 200px;
+  float: left;
+  padding: 0 20px;
+}
+
+.App-imageTopicView {
+  float: left;
+  margin-right: 20px;
+}
+
+.App-header-connected {
+  float: left;
+  padding-top: 7px;
+  padding-left: 25px;
+}
+
+.connected {padding-top: 100px;}
+
+.connected-inventory {
+  width: 500px;
+  margin: 30px auto;
+  text-align: left;
+}
+
+.connected-inventory-bin {
+  margin-bottom: 20px;
+}
+
+.connected-icon {
+  display: inline-block;
+  margin-right: 10px;
+  width: 12px;
+  height: 12px;
+  background-color: #74E564;
+  border-radius: 50%;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #5bbd4e 0 -1px 9px, #3eff24 0 2px 8px;
+
+  -webkit-animation: blinkGreen 1s infinite;
+  -moz-animation: blinkGreen 1s infinite;
+  -ms-animation: blinkGreen 1s infinite;
+  -o-animation: blinkGreen 1s infinite;
+  animation: blinkGreen 1s infinite;
+}
+
+.connected-label {
+  display: inline;
+  opacity:0.5;
+  font-size:14px;
+  /* color:rgb(160, 217, 168); */
+}
+
+.connected-pick-button {
+  margin-top: 30px;
+}
+
+.App-header-abortPick {
+  float:right;
+  padding-right: 20px;
+}
+
+.App-header-pickStatus-label {
+  display: inline;
+  padding-right: 20px;
+  opacity: 0.9;
+}
+
+@-webkit-keyframes blinkGreen {
+  from { background-color: #74E564; }
+  50% { background-color: #5bbd4e; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #5bbd4e 0 -1px 9px, #3eff24 0 2px 8px; }
+  to { background-color: #74E564; }
+}
+@-moz-keyframes blinkGreen {
+  from { background-color: #74E564; }
+  50% { background-color: #5bbd4e; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #5bbd4e 0 -1px 9px, #3eff24 0 2px 8px; }
+  to { background-color: #74E564; }
+}
+@-ms-keyframes blinkGreen {
+  from { background-color: #74E564; }
+  50% { background-color: #5bbd4e; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #5bbd4e 0 -1px 9px, #3eff24 0 2px 8px; }
+  to { background-color: #74E564; }
+}
+@-o-keyframes blinkGreen {
+  from { background-color: #74E564; }
+  50% { background-color: #5bbd4e; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #5bbd4e 0 -1px 9px, #3eff24 0 2px 8px; }
+  to { background-color: #74E564; }
+}
+@keyframes blinkGreen {
+  from { background-color: #74E564; }
+  50% { background-color: #5bbd4e; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #5bbd4e 0 -1px 9px, #3eff24 0 2px 8px; }
+  to { background-color: #74E564; }
+}
+
+
+.App-imageTopicView .ImageTopicView {
+  width: 1024px;
+  height: 768px;
+  /* width: 700px;
+  height: 700px; */
+}
+
+@media only screen and (max-width: 1280px) {
+  .App-imageTopicView .ImageTopicView  {
+    width: 768px;
+    height: 576px;
+    /* width: 700px;
+    height: 700px; */
+  }
+  .App-imageTopicView .ImageTopicView img  {
+    width: 768px;
+    height: 576px;
+    /* width: 700px;
+    height: 700px; */
+  }
+}
+
+@media only screen and (max-width: 1025px) {
+  .App-imageTopicView .ImageTopicView  {
+    width: 576px;
+    /* height: 576px; */
+    height: 432px;
+  }
+  .App-imageTopicView .ImageTopicView img  {
+    width: 576px;
+    /* height: 576px; */
+    height: 432px;
+  }
+}
+
+
+.targetSelectModal .ImageTopicView {
+  width: 520px;
+  height:500px;
+}
+
+.targetSelectModal .targetSelectModal-arrows svg {
+  cursor: pointer;
+}
+
+.App-prompt-header {
+  text-align: left;
+  margin-left: 25px;
+  color: #444;
+}
+
+.App-prompt-description {
+  text-align: left;
+  margin-left: 25px;
+  margin-top: -5px;
+}
+
+.App-prompt-description-container {
+  float: left;
+  width: 500px;
+}
+
+.App-prompt {
+  float: left;
+  width: 100%;
+  height: 110px;
+  background: #fff;
+  box-shadow: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12);
+  margin-bottom: 20px;
+}
+
+.App-prompt-images {
+  float: left;
+  width: 400px;
+}
+
+.App-prompt-bin {
+  float: left;
+}
+
+.App-prompt-container {
+  border-right: 1px solid #ccc;
+  height: 105px;
+  padding-right: 30px;
+  padding-top: 5px;
+}
+
+.App-prompt-images-gallery {
+  text-align: left;
+  padding-left: 25px;
+  margin-top: -5px;
+}
+
+.App-prompt-images-gallery img {
+  margin-right: 5px;
+  cursor: pointer;
+}
+
+
+.inventory-item-image {
+  float: left;
+  
+}
+
+.inventory-item-description {
+  float: left;
+  padding-left: 10px;
+  width: 300px;
+}
+
+.inventory-item {
+  float: left;
+  width: 100%;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+  padding-top: 5px;
+}
+
+.review-picks-img {
+  width: 50px;
+  height: 50px;
+  float: left;
+}
+
+.review-picks-bin {
+  float: left;
+  width: 25px;
+  font-size: 18px;
+  padding-top: 15px;
+}
+
+.review-picks-description {
+  float: left;
+  width: 340px;
+}
+
+.review-picks-items {
+  height: 500px;
+  overflow:scroll;
+  
+}
+
+.review-picks-item {
+  /* width: 100%; */
+  float: left;
+  padding: 5px 10px;
+  border: 1px solid #eee;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.review-picks-item-selected {
+  border: 1px solid #5bbd4e;
+}
+
+.review-picks-list {
+  user-select: none;
+}
+
+.review-picks-item {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: grab;
+}
+
+.review-picks-dragged {
+  opacity:0.3;
+  z-index:9999;
+  background: #eee;
+}

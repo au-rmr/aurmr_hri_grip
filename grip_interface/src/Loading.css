@@ -1,0 +1,14 @@
+.Loading {
+  margin-top: 200px;
+  text-align: center;
+}
+
+.Loading-label {
+  display:inline;
+}
+
+.Loading-icon {
+  position:relative;
+  top:5px;
+  margin-right:12px;
+}
