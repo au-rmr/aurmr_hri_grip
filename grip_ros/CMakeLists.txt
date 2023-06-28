@@ -179,6 +179,7 @@ catkin_install_python(PROGRAMS
   scripts/pick
   scripts/pick_streamlined
   scripts/send_execute_primitive_request
+  scripts/send_abort
   scripts/save_camera_image
   nodes/publish_bin_images
   nodes/data_collection

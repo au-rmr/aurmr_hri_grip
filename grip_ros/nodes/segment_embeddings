@@ -43,17 +43,25 @@ class SegmentEmbeddingsNode:
                 "success": False,
                 "message": "No image available"
             }
-
         
-        self.predictor.set_image(self.bin_image)
+        bin_image = self.bin_image.copy()
+        stamp = rospy.Time.now()
+        
+        self.predictor.set_image(bin_image)
         image_embedding = self.predictor.get_image_embedding().cpu().numpy()
         image_embedding_list = image_embedding.flatten().tolist()
 
+        # bin_image = self.cv_bridge.cv2_to_imgmsg(bin_image)
+        image_msg = CompressedImage()
+        image_msg.header.stamp = stamp
+        image_msg.format = "jpeg"
+        image_msg.data = np.array(cv2.imencode('.jpg', bin_image)[1]).tostring()
 
         return {
             "success": True,
             "tensor_shape": image_embedding.shape,
-            "tensor_data": image_embedding_list
+            "tensor_data": image_embedding_list,
+            "image": image_msg
         }
 
     def bin_image_callback(self, image):
@@ -89,7 +97,7 @@ class SegmentEmbeddingsNode:
 
 
 if __name__ == '__main__':
-    rospy.init_node('segment_embeddings')
+    rospy.init_node('segment_embeddings', xmlrpc_port=45100, tcpros_port=45101)
     print('Starting segment_embeddings service...')
     node = SegmentEmbeddingsNode()
     node.start()

@@ -26,6 +26,7 @@ interface IState {
 
 class ImageTopicMaskTool extends React.Component<IProps, IState> {
   private containerRef = React.createRef<HTMLDivElement>()
+  private imageTopic: ROSLIB.Topic<ROSCompressedImage> | null = null
   // private cursorCircleRef = React.createRef<any>()
 
   constructor(props: IProps) {
@@ -39,12 +40,13 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
   }
 
   componentDidMount() {
-    let topic = new ROSLIB.Topic<ROSCompressedImage>({
-      ros: this.props.ros,
-      name: this.props.topicName,
-      messageType: 'sensor_msgs/CompressedImage'
-    });
-    topic.subscribe(this.callback.bind(this));
+    // let topic = new ROSLIB.Topic<ROSCompressedImage>({
+    //   ros: this.props.ros,
+    //   name: this.props.topicName,
+    //   messageType: 'sensor_msgs/CompressedImage'
+    // });
+    // topic.subscribe(this.callback.bind(this));
+    // this.imageTopic = topic;
 
     let rosEmbeddingService = new ROSLIB.Service({
       ros: this.props.ros,
@@ -54,10 +56,10 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
     let request = new ROSLIB.ServiceRequest({})
     rosEmbeddingService.callService(request, (response) => {
       console.log("Embedding response:")
-      console.log(response);
       const tensor = new ort.Tensor('float32', response.tensor_data, response.tensor_shape);
       console.log(tensor);
-      this.setState({embedding: tensor});
+      const imageData = "data:image/jpg;base64," + response.image.data
+      this.setState({embedding: tensor, imageData});
     });
     this.syncWithContainerSize();
   }
@@ -66,11 +68,12 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
     this.syncWithContainerSize();
   }
 
-  callback(message: ROSCompressedImage) {
-    this.setState({
-      imageData: "data:image/jpg;base64," + message.data
-    });
-  }
+  // callback(message: ROSCompressedImage) {
+  //   this.setState({
+  //     imageData: "data:image/jpg;base64," + message.data
+  //   });
+  //   this.imageTopic?.unsubscribe();
+  // }
 
   syncWithContainerSize() {
     if (this.containerRef.current?.offsetHeight && this.containerRef.current?.offsetWidth) {
@@ -91,10 +94,6 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
 
     let crosshairImage = new window.Image();
     crosshairImage.src = crosshair;
-    console.log('image:')
-    console.log(image);
-    console.log('embedding:')
-    console.log(embedding);
     return (
       <div className="ImageTopicView-image">
         <SegmentAnything
@@ -114,7 +113,7 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
         {!this.state.imageData || !this.state.embedding ? (
           <div className="ImageTopicView-loading">
             <img src={loading} className="Loading-icon" alt="Loading" />
-            Loading {this.props.topicName}
+            Loading {this.props.topicName} {this.state.imageData ? null : 'no image data'} {this.state.embedding ? null : 'no embedding'}
           </div>
         ) : this.renderImageTopic()}
       </div>

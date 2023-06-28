@@ -250,9 +250,6 @@ class App extends React.Component<IProps, IState> {
 
   componentDidMount() {
     const ros = new ROSLIB.Ros({
-      // url: 'ws://forky.hcrlab.cs.washington.edu:9090'
-      // url: 'ws://kp:9090'
-      // url: 'ws://localhost:9090'
       url: `ws://${process.env.REACT_APP_ROSBRIDGE_HOST}:9090`
     });
 

@@ -315,7 +315,7 @@ class WaitForPick(State):
 
 class PublishStepTransition(State):
     def __init__(self, publisher, message=None, available_primitive_type=StepTransition.PRIMITIVE_TYPE_NONE):
-        State.__init__(self, outcomes=['succeeded'], output_keys=[])
+        State.__init__(self, outcomes=['succeeded', 'aborted'], output_keys=[])
         self.message = message
         self.available_primitive_type = available_primitive_type
         self.publisher = publisher
@@ -338,6 +338,7 @@ class PrimitiveExecutionService():
         self.available_primitives = []
         self.done = False
         self.retry = False
+        self.abort = False
         self.record_from_topic = RecordImageRequest.CAMERA_WRIST
         self.record_to_topics = {}
 
@@ -350,7 +351,7 @@ class PrimitiveExecutionService():
         self.retry = False
 
     def set_available_primitives(self, primitives):
-        self.available_primitives = primitives + ['done', 'retry']
+        self.available_primitives = primitives + ['done', 'retry', 'abort']
     
     def record_event(self, metadata, event_type=Event.EVENT_PRIMITIVE_EXEC):
         event = Event()
@@ -376,6 +377,9 @@ class PrimitiveExecutionService():
             return {"success": True}
         if request.primitive_name == 'retry':
             self.retry = True
+            return {"success": True}
+        if request.primitive_name == 'abort':
+            self.abort = True
             return {"success": True}
         if self.registered_callback is None:
             return {"success": False}
@@ -404,11 +408,14 @@ class PrimitiveExecutionService():
         return {"success": True}
 
     def spin(self):
-        while not self.done and not rospy.is_shutdown() and not self.retry:
+        while not self.done and not rospy.is_shutdown() and not self.retry and not self.abort:
             rospy.sleep(.1)
         
         if self.retry:
             return "retry"
+        
+        if self.abort:
+            return "aborted"
 
         if rospy.is_shutdown():
             return "done"
