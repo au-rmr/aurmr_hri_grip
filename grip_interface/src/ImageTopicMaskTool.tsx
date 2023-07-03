@@ -15,6 +15,7 @@ const ort = require("onnxruntime-web");
 interface IProps {
   topicName: string,
   ros: ROSLIB.Ros,
+  handleMaskSaved: (mask: HTMLImageElement, image: HTMLImageElement) => void
 }
 
 interface IState {
@@ -94,14 +95,14 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
 
     let crosshairImage = new window.Image();
     crosshairImage.src = crosshair;
+    console.log('?');
     return (
       <div className="ImageTopicView-image">
         <SegmentAnything
             image={image}
             embedding={embedding}
             modelUrl={"/sam_onnx_quantized_example.onnx"}
-            handleMaskSaved={(mask: HTMLImageElement, image: HTMLImageElement) => {
-            }} />
+            handleMaskSaved={this.props.handleMaskSaved} />
       </div>
     );
   }

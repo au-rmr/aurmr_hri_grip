@@ -10,7 +10,9 @@ import {
   ValidJoints,
   ROSJointState,
   VelocityGoalArray,
-  Event
+  Event,
+  ROSCompressedImage,
+  AutomatePick
 } from './messages';
 
 import { timestamp } from './utils';
@@ -38,6 +40,11 @@ import InfoIcon from '@mui/icons-material/Info';
 import CachedIcon from '@mui/icons-material/Cached';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowLeftIcon from '@mui/icons-material/ArrowLeft';
+import ArrowRightIcon from '@mui/icons-material/ArrowRight';
+
 import './App.css';
 import connected from './green-circle.png';
 import loading from './loading.svg';
@@ -46,6 +53,8 @@ import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
+
+const AGENT_NODE = "pick_agent_baseline"
 
 interface IProps {}
 
@@ -56,6 +65,8 @@ interface IState {
   rosEvalService: ROSLIB.Service | null;
   rosRecordEventService: ROSLIB.Service | null;
   rosRecordImageService: ROSLIB.Service | null;
+  rosAdjustCropService: ROSLIB.Service | null;
+  rosAutomatePickService: ROSLIB.Service | null;
   rosConnected: boolean;
   rosError: string;
   jointState: ROSJointState | null;
@@ -207,6 +218,8 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
       rosEvalService: null,
       rosRecordEventService: null,
       rosRecordImageService: null,
+      rosAdjustCropService: null,
+      rosAutomatePickService: null,
       rosError: "",
       jointState: null,
       targetObject: null,
@@ -305,6 +318,18 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
       serviceType: "/grip_ros/RecordImage"
     });
 
+    const rosAdjustCropService = new ROSLIB.Service({
+      ros: ros,
+      name: "publish_bin_images/adjust_bin_crop",
+      serviceType: "/grip_ros/AdjustBinCrop"
+    });
+
+    const rosAutomatePickService = new ROSLIB.Service({
+      ros: ros,
+      name: `${AGENT_NODE}/auto_pick`,
+      serviceType: "/grip_ros/AutomatePick"
+    });
+
     const stepTransitionListener = new ROSLIB.Topic<StepTransition>({
       ros : ros,
       name : 'pick/step_transition',
@@ -319,7 +344,9 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
       rosExecPrimitiveService,
       rosEvalService,
       rosRecordEventService,
-      rosRecordImageService
+      rosRecordImageService,
+      rosAdjustCropService,
+      rosAutomatePickService
     });
   }
 
@@ -437,6 +464,14 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
       cb(success);
       if (!success) {
         alert("Failed to record event.");
+      }
+    });
+  }
+
+  sendAutomatePick(request: AutomatePick) {
+    this.state.rosAutomatePickService!.callService(new ROSLIB.ServiceRequest(request), (success: boolean) => {
+      if (!success) {
+        alert("Failed to send automate pick request.");
       }
     });
   }
@@ -653,6 +688,20 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
     // this.velocityGoal = makeVelocityGoal(positions, velocities, this.trajectoryClient!)
     // this.velocityGoal.send()
     // this.affirmExecution()
+  }
+
+  executeCropAdjustment(direction: string, magnitude: number = 5) {
+    const { rosAdjustCropService } = this.state;
+
+    const request = new ROSLIB.ServiceRequest({direction, magnitude});
+
+    rosAdjustCropService!.callService(request, (success: boolean) => {
+      if (!success) {
+        alert("Failed to execute crop adjustment");
+      }
+    });
+
+    return false;
   }
 
   renderControls() {
@@ -881,7 +930,7 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
       evalNotes
     } = this.state;
 
-    let targetItem = null;
+    let targetItem: {id: number, description: string, images: string[]} | undefined = undefined;
     if (targetObject && targetBin) {
       targetItem = inventory[targetBin!].find((item) => item.id == targetObject);
     }
@@ -975,7 +1024,28 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
             <>
             <ImageTopicMaskTool
               topicName="/binCamera/compressed"
-              ros={ros!} />
+              ros={ros!}
+              handleMaskSaved={(mask, image) => {
+                const maskData = mask.src.replace('data:image/png;base64,', '');
+                const imageData = image.src.replace('data:image/jpg;base64,', '');
+                // const maskBuffer = Buffer.from(maskData, 'base64');
+                // const imageBuffer = Buffer.from(imageData, 'base64');
+
+                const automatePickReq = {
+                  'bin_id': targetBin!,
+                  'item_id': targetObject!,
+                  'item_description': targetItem!.description,
+                  'mask': {
+                    'format': "png",
+                    'data': maskData
+                  },
+                  'image': {
+                    'format': "jpeg",
+                    'data': imageData
+                  }
+                }
+                this.sendAutomatePick(automatePickReq);
+              }} />
             </>
           )}
           <Modal

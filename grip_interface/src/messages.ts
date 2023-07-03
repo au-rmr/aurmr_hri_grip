@@ -27,8 +27,8 @@ export interface NamedPose {
 }
 
 export interface ROSCompressedImage extends Message {
-    header: string,
-    format: "jpeg" | "png",
+    // header: string,
+    format: string,
     data: string
 }
 
@@ -73,6 +73,14 @@ export interface PickRequest {
     bin_id: string,
     item_id: number,
     item_description: string
+}
+
+export interface AutomatePick {
+    bin_id: string,
+    item_id: number,
+    item_description: string,
+    image: any,
+    mask: any
 }
 
 export enum PrimitiveType {

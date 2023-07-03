@@ -4,6 +4,7 @@ import ROSLIB from 'roslib';
 import './index.css';
 import App from './App';
 import AppAutoBaseline from './AppAutoBaseline';
+import AppAdjustCrop from './AppAdjustCrop';
 
 // Add some helpers to the window for easily retrieving params from the URL
 declare global {
@@ -38,6 +39,10 @@ if (exp("autobaseline")) {
     root.render(
         <AppAutoBaseline />
     );
+} else if (exp("adjust_crop")) {
+  root.render(
+      <AppAdjustCrop />
+  );
 } else {
   root.render(
       <App />
