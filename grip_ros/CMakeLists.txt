@@ -72,6 +72,7 @@ add_service_files(
   SetBinCrop.srv
   AdjustBinCrop.srv
   GetBinEmbedding.srv
+  AutomatePick.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -181,6 +182,7 @@ catkin_install_python(PROGRAMS
   scripts/send_execute_primitive_request
   scripts/send_abort
   scripts/save_camera_image
+  scripts/pick_agent_baseline
   nodes/publish_bin_images
   nodes/data_collection
   nodes/segment_embeddings

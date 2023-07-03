@@ -1,0 +1,104 @@
+import smach_ros
+from smach import State, StateMachine
+import rospy
+import cv_bridge
+import cv2
+import numpy as np
+
+from grip_ros import control_flow as cf, evaluation, motion, stretch
+from grip_ros.srv import AutomatePick, ExecutePrimitive
+from grip_ros.msg import StepTransition, KeyValue
+
+
+bridge = cv_bridge.CvBridge()
+primitive_service = rospy.ServiceProxy('/pick/execute_primitive', ExecutePrimitive)
+
+def dict_to_kv(params):
+    kv_list = []
+    for k,v in params.items():
+        kv_list.append(KeyValue(key=k, value=v))
+    return kv_list
+
+def perform_pick(pick_req):
+    print('recieved pick request')
+    mask = pick_req.mask
+    image = pick_req.image
+
+    mask = bridge.compressed_imgmsg_to_cv2(mask, desired_encoding='passthrough')
+    image = bridge.compressed_imgmsg_to_cv2(image, desired_encoding='passthrough')
+
+    mask_binary = (mask[:,:,3:4] > 0).astype('uint8')
+    (numLabels, labels, stats, centroids) = cv2.connectedComponentsWithStats(mask_binary, 8, cv2.CV_32S)
+    coi = np.argmax(stats[1:,4:5]) + 1
+    point = centroids[coi].round().astype(int)
+
+    u = point[0] / image.shape[0]
+    v = point[1] / image.shape[1]
+
+    # point_img = cv2.circle(image, point, 10, (0, 255, 0), 5)
+    # cv2.imshow('point', point_img)
+    # cv2.waitKey(0)
+
+    print('u: {}, v: {}'.format(u, v))
+    # import pdb; pdb.set_trace()
+
+    # Send pick primitive using point as x,y
+    # align_prim = ExecutePrimitive()
+    # align_prim.primitive_name = 'align_target'
+    print("Aligning to target")
+    primitive_service('align_target', dict_to_kv({
+        'x': str(u),
+        'y': str(v),
+    }))
+
+    # rospy.sleep(3)
+
+    print("Setting gripper width")
+    primitive_service('set_gripper_width', dict_to_kv({
+        'width': '0.05',
+    }))
+
+    rospy.sleep(1)
+
+    print("Extending arm")
+    primitive_service('extend_arm', dict_to_kv({
+        # 'padding': '-0.05',
+        'padding': '0.0',
+    }))
+
+    print("Closing gripper")
+    primitive_service('close_gripper', [])
+
+    rospy.sleep(1)
+
+    print("Sending done grasping...")
+    primitive_service('done', [])
+
+    rospy.sleep(1)
+
+    print("Sending done probing...")
+    primitive_service('done', [])
+
+    rospy.sleep(1)
+
+    print("Lifting and pulling back...")
+    primitive_service('lift', [])
+    rospy.sleep(1)
+    primitive_service('pull_back', [])
+
+    print("Sending done extracting...")
+    primitive_service('done', [])
+
+
+def main():
+    print('Running automated pick agent (baseline)')
+    rospy.init_node("pick_agent_baseline")
+    
+    service = rospy.Service('~auto_pick', AutomatePick, perform_pick)
+
+
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    main()

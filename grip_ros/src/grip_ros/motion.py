@@ -66,7 +66,7 @@ class MoveToBin(MotionState):
         super().__init__(robot, outcomes=['succeeded', 'preempted', 'aborted'], \
                             step_transition_publisher=step_transition_publisher, \
                             step_transition_message="Moving to bin...")
-    
+
     def execute(self, userdata):
         self.publish_step_transition(userdata)
 
@@ -97,6 +97,7 @@ class MoveToBin(MotionState):
         #     'gripper_aperture': 0.0
         # }
         self.robot.reset_pose(userdata['target_bin_id'])
+        rospy.sleep(3)
 
         return "succeeded"
 
@@ -386,7 +387,7 @@ class Grasp(MotionPrimitiveServiceState):
             map_point = self.tf_buffer.transform(camera_point_stamped, "map")
 
             # grasp_point = self.tf_buffer.transform(camera_point_stamped, "link_grasp_center")
-            # self.visualize_point(grasp_point, "link_grasp_center")
+            self.visualize_point(map_point, "map")
 
             # Move the robot to align with the target point
             self.robot.command_velocity_towards_goal(map_point)

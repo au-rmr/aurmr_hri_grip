@@ -1,0 +1,7 @@
+string bin_id
+uint8 item_id
+string item_description
+sensor_msgs/CompressedImage image
+sensor_msgs/CompressedImage mask
+---
+bool success

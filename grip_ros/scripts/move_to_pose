@@ -19,8 +19,8 @@ def main():
     custom_contact_thresholds = False
 
     pose = {
-        # 'joint_head_tilt': -0.4,
-        # 'joint_head_pan': -3.14/2,
+        'joint_head_tilt': -0.5,
+        'joint_head_pan': -3.14/2,
         # # 'joint_lift': 0.5,
         # 'joint_lift': 0.2,
         # 'joint_wrist_yaw': 0.0,
@@ -28,7 +28,7 @@ def main():
         # 'joint_arm_l1': 0.0,
         # 'joint_arm_l2': 0.0,
         # 'joint_arm_l3': 0.0,
-        'gripper_aperture': 0.03,
+        'gripper_aperture': 0.0,
         'wrist_extension': 0.0
     }
 
