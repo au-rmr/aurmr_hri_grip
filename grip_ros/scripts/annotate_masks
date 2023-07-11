@@ -1,0 +1,99 @@
+import argparse
+import smach_ros
+import glob
+from smach import State, StateMachine
+import rospy
+import cv_bridge
+import cv2
+import numpy as np
+import json
+import actionlib
+import matplotlib.pyplot as plt
+import os
+
+from sensor_msgs.msg import Image, CameraInfo, CompressedImage
+
+from grip_ros import control_flow as cf, evaluation, motion, stretch
+from grip_ros.srv import AutomatePick, ExecutePrimitive
+from grip_ros.msg import StepTransition, KeyValue, AnnotateMaskAction, AnnotateMaskGoal
+
+from segment_anything import sam_model_registry, SamPredictor
+from segment_anything.utils.onnx import SamOnnxModel
+
+
+def main(input_path):
+    print('Running mask annotation...')
+    rospy.init_node("mask_annotation")
+
+    bridge = cv_bridge.CvBridge()
+    # annotate_service = rospy.ServiceProxy('/annotation_ui/annotate_mask', AnnotateMask)
+    annotate_client = actionlib.SimpleActionClient('annotate_mask', AnnotateMaskAction)
+    if not annotate_client.wait_for_server(rospy.Duration.from_sec(10.0)):
+        raise Exception("mask_annotator timed out connecting to server")
+
+    # SAM setup
+    checkpoint = "/workspace/sam_vit_h_4b8939.pth"
+    model_type = "vit_h"
+    sam = sam_model_registry[model_type](checkpoint=checkpoint)
+    sam.to(device='cuda')
+    sam_predictor = SamPredictor(sam)
+
+    json_files = glob.glob(input_path + '/*.json')
+    for json_file in json_files:
+        if os.path.exists(json_file.replace('.json', '_mask.png')):
+            continue
+        
+        with open(json_file, 'r') as f:
+            metadata = json.load(f)
+
+        image = cv2.imread(json_file.replace('.json', '.png'))
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        sam_predictor.set_image(image)
+        image_embedding = sam_predictor.get_image_embedding().cpu().numpy()
+        image_embedding_list = image_embedding.flatten().tolist()
+
+        image_msg = CompressedImage()
+        image_msg.header.stamp = rospy.Time.now()
+        image_msg.format = "jpeg"
+        image_msg.data = np.array(cv2.imencode('.jpg', image)[1]).tostring()
+
+        print(metadata)
+
+        goal = AnnotateMaskGoal(
+            bin_id=metadata['bin_id'],
+            item_id=metadata['item_id'],
+            grasp_x=round(metadata['x'] * image.shape[0]),
+            grasp_y=round(metadata['y'] * image.shape[1]),
+            tensor_shape=image_embedding.shape,
+            tensor_data=image_embedding_list,
+            image=image_msg
+        )
+
+        annotate_client.send_goal(goal)
+        print("client.wait_for_result")
+        if not annotate_client.wait_for_result(rospy.Duration.from_sec(120.0)):
+            annotate_client.cancel_goal()
+            annotate_client.wait_for_result(rospy.Duration.from_sec(15.0))
+            raise Exception("timed out waiting for result")
+
+        result = annotate_client.get_result()
+
+        if result.success:
+            mask = bridge.compressed_imgmsg_to_cv2(result.mask)
+            cv2.imwrite(json_file.replace('.json', '_mask.png'), mask)
+            print('Saved mask for', json_file)
+
+    # service = rospy.Service('~auto_pick', AutomatePick, perform_pick)
+
+    print('All done!')
+
+    # rospy.spin()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--input', type=str, help='Path to input directory')
+    args = parser.parse_args()
+
+    main(args.input)

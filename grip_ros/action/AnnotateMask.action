@@ -1,0 +1,15 @@
+# Goal
+string bin_id
+uint8 item_id
+sensor_msgs/CompressedImage image
+int32[] tensor_shape
+float32[] tensor_data
+uint8 grasp_x
+uint8 grasp_y
+---
+# Result
+sensor_msgs/CompressedImage mask
+bool success
+---
+# Feedback
+bool accepted

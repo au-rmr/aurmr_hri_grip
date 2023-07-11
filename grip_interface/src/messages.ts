@@ -83,6 +83,21 @@ export interface AutomatePick {
     mask: any
 }
 
+export interface AnnotateMaskGoal {
+    bin_id: string,
+    item_id: number,
+    image: any,
+    tensor_shape: number[],
+    tensor_data: number[],
+    grasp_x: number,
+    grasp_y: number,
+}
+
+export interface AnnotateMaskResult {
+    success: boolean,
+    mask: any
+}
+
 export enum PrimitiveType {
     None = 0,
     Grasp,

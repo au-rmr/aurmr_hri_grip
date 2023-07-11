@@ -35,6 +35,11 @@ def metadata_to_dict(metadata):
 
 
 def process_pick_folder(pick_folder, output_folder):
+
+    if not os.path.exists(os.path.join(pick_folder, 'pick_events.json')):
+        print(f'No pick events JSON found in {pick_folder}')
+        return
+
     with open(os.path.join(pick_folder, 'pick_events.json'), 'r') as f:
         pick_events = json.load(f)
 

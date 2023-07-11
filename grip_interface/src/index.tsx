@@ -5,6 +5,7 @@ import './index.css';
 import App from './App';
 import AppAutoBaseline from './AppAutoBaseline';
 import AppAdjustCrop from './AppAdjustCrop';
+import AppMasks from './AppMasks';
 
 // Add some helpers to the window for easily retrieving params from the URL
 declare global {
@@ -42,6 +43,10 @@ if (exp("autobaseline")) {
 } else if (exp("adjust_crop")) {
   root.render(
       <AppAdjustCrop />
+  );
+} else if (exp("masks")) {
+  root.render(
+      <AppMasks />
   );
 } else {
   root.render(

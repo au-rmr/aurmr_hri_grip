@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   sensor_msgs
+  actionlib_msgs
   roslint
   message_generation
 )
@@ -75,18 +76,18 @@ add_service_files(
   AutomatePick.srv
 )
 
-## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+# Generate actions in the 'action' folder
+add_action_files(
+  FILES
+  AnnotateMask.action
+)
 
 # Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
   std_msgs
   sensor_msgs
+  actionlib_msgs
 )
 
 ################################################
@@ -183,6 +184,7 @@ catkin_install_python(PROGRAMS
   scripts/send_abort
   scripts/save_camera_image
   scripts/pick_agent_baseline
+  scripts/annotate_masks
   nodes/publish_bin_images
   nodes/data_collection
   nodes/segment_embeddings
