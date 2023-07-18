@@ -14,7 +14,7 @@ python /home/mike/Workspaces/aurmr_hitl/src/VideoMAE/run_class_finetuning.py \
             --epochs 30 \
             --model vit_small_patch16_224 \
             --input_size 224 \
-            --data_path /data/aurmr/grip/datasets/grasp_success_classifier \
+            --data_path /data/aurmr/grip/datasets/archive/grasp_success_classifier \
             --data_set grip \
             --output_dir /data/aurmr/grip/models/ss2/grip_binary_finetune \
             --num_frames 16 \

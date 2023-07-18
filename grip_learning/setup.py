@@ -1,12 +1,9 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="aurmr_hri_learning",
-    version="1.0",
+    name="grip_learning",
+    version="0.0.1",
     install_requires=[],
-    packages=find_packages(exclude="notebooks"),
-    extras_require={
-        # "all": ["matplotlib", "pycocotools", "opencv-python", "onnx", "onnxruntime"],
-        # "dev": ["flake8", "isort", "black", "mypy"],
-    },
+    packages=find_packages('src'),
+    package_dir={'': 'src'}
 )
