@@ -9,7 +9,7 @@ import json
 
 from sensor_msgs.msg import Image
 
-from grip_ros.msg import Event
+from grip_ros.msg import Event, RecordedImages
 from grip_ros.srv import RecordEvent, RecordImage, RecordImageRequest
 
 
@@ -28,6 +28,7 @@ class DataCollectionNode:
         self._pick_event_bag = None
         self._pick_image_bag = None
         self._pick_events = []
+        self._latest_wrist_images = []
 
         self.event_service = rospy.Service('~record_event', RecordEvent, self.record_event_callback)
         self.image_service = rospy.Service('~record_image', RecordImage, self.record_image_callback)
@@ -49,6 +50,8 @@ class DataCollectionNode:
         self.image_bin_subscriber = rospy.Subscriber("/binCamera", Image, self.bin_image_callback)
         self.image_bin_depth_subscriber = rospy.Subscriber("/binCamera/depth", Image, self.bin_depth_image_callback)
         self.image_wrist_subscriber = rospy.Subscriber("/gripper_camera/image_raw", Image, self.wrist_image_callback)
+
+        self.recorded_image_publisher = rospy.Publisher("/data_collection/recorded_wrist_images", RecordedImages, queue_size=1)
 
         self.realsense_synchronizer = message_filters.ApproximateTimeSynchronizer([
              self.image_realsense_rgb_subscriber, self.image_realsense_depth_subscriber], 10, 1)
@@ -183,6 +186,8 @@ class DataCollectionNode:
         # if recording_tuple in self._writing_images:
         #     was_recording = True
         #     self._writing_images.remove(recording_tuple)
+        if req.input_camera == RecordImageRequest.CAMERA_WRIST:
+            self._latest_wrist_images = []
         
         # if req.continue_recording:
         self._writing_images.append(recording_tuple)
@@ -216,11 +221,23 @@ class DataCollectionNode:
                     input_camera, output_topic, next_steps = recording_tuple
                     image = self.input_camera_to_image(input_camera)
                     if image is not None:
+                        # print(f'Writing image for {output_topic}')
+                        # print(image.header)
+                        if input_camera == RecordImageRequest.CAMERA_WRIST:
+                            self._latest_wrist_images.append(image)
                         self._pick_image_bag.write(output_topic, image, image.header.stamp)
                     else:
                         rospy.logwarn(f'Failed to get image for {input_camera}')
                     if next_steps > 0:
                         new_queue.append((input_camera, output_topic, next_steps - 1))
+                    else:
+                        if input_camera == RecordImageRequest.CAMERA_WRIST:
+                            record_msg = RecordedImages()
+                            record_msg.images = self._latest_wrist_images
+                            record_msg.header.stamp = rospy.Time.now()
+                            self.recorded_image_publisher.publish(record_msg)
+                            self._latest_wrist_images = []
+                            print('sent wrist images...')
                 self._writing_images = new_queue
 
             self.loop_rate.sleep()

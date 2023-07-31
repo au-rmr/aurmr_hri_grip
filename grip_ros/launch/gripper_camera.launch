@@ -21,6 +21,7 @@
     <param name="auto_white_balance" value="true" />
     <!-- <param name="white_balance" value="3100" /> -->
     <param name="gain" value="30" />
+    <param name="gamma" value="100" />
     <!-- hue of 0 would be good if it could be set from her -->
     
     <param name="camera_frame_id" value="gripper_camera" />

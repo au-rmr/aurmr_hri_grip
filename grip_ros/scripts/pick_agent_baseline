@@ -21,6 +21,18 @@ def dict_to_kv(params):
 
 def perform_pick(pick_req):
     print('recieved pick request')
+    if pick_req.skip:
+        print("Sending done grasping...")
+        primitive_service('done', [])
+        rospy.sleep(1)
+        print("Sending done probing...")
+        primitive_service('done', [])
+        rospy.sleep(1)
+        print("Sending done extracting...")
+        primitive_service('done', [])
+        return
+
+
     mask = pick_req.mask
     image = pick_req.image
 

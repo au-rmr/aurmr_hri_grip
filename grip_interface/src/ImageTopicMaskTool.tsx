@@ -10,6 +10,8 @@ import Konva from 'konva';
 import {SegmentAnything} from "react-segment-anything"
 import useImage from 'use-image';
 
+import { Button, Stack, Card, CardContent, Modal, Box, Typography, TextField, Slider } from "@mui/material";
+
 const ort = require("onnxruntime-web");
 
 interface IProps {
@@ -23,6 +25,7 @@ interface IState {
   width: number,
   height: number,
   embedding: any,
+  rosEmbeddingService: any,
 }
 
 class ImageTopicMaskTool extends React.Component<IProps, IState> {
@@ -37,6 +40,7 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
       width: 0,
       height: 0,
       embedding: null,
+      rosEmbeddingService: null,
     };
   }
 
@@ -62,6 +66,7 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
       const imageData = "data:image/jpg;base64," + response.image.data
       this.setState({embedding: tensor, imageData});
     });
+    this.setState({rosEmbeddingService})
     this.syncWithContainerSize();
   }
 
@@ -77,6 +82,7 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
   // }
 
   syncWithContainerSize() {
+    if (!this.containerRef.current) return;
     if (this.containerRef.current?.offsetHeight && this.containerRef.current?.offsetWidth) {
       if (this.state.width !== this.containerRef.current?.offsetWidth ||
           this.state.height !== this.containerRef.current?.offsetHeight) {
@@ -91,11 +97,10 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
   renderImageTopic() {
     let image = new window.Image();
     image.src = this.state.imageData!;
-    const { width, height, embedding } = this.state;
+    const { width, height, embedding, rosEmbeddingService } = this.state;
 
     let crosshairImage = new window.Image();
     crosshairImage.src = crosshair;
-    console.log('?');
     return (
       <div className="ImageTopicView-image">
         <SegmentAnything
@@ -103,6 +108,14 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
             embedding={embedding}
             modelUrl={"/sam_onnx_quantized_example.onnx"}
             handleMaskSaved={this.props.handleMaskSaved} />
+        <Button variant="contained" onClick={() => {
+          let request = new ROSLIB.ServiceRequest({})
+          rosEmbeddingService.callService(request, (response: any) => {
+            const tensor = new ort.Tensor('float32', response.tensor_data, response.tensor_shape);
+            const imageData = "data:image/jpg;base64," + response.image.data
+            this.setState({embedding: tensor, imageData});
+          });
+        }}>Resync Embedding</Button>
       </div>
     );
   }
@@ -114,7 +127,7 @@ class ImageTopicMaskTool extends React.Component<IProps, IState> {
         {!this.state.imageData || !this.state.embedding ? (
           <div className="ImageTopicView-loading">
             <img src={loading} className="Loading-icon" alt="Loading" />
-            Loading {this.props.topicName} {this.state.imageData ? null : 'no image data'} {this.state.embedding ? null : 'no embedding'}
+            Loading {this.props.topicName} image and embedding...
           </div>
         ) : this.renderImageTopic()}
       </div>

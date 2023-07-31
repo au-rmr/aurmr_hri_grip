@@ -54,8 +54,6 @@ import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 
-const AGENT_NODE = "pick_agent_baseline"
-
 interface IProps {}
 
 interface IState {
@@ -326,7 +324,7 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
 
     const rosAutomatePickService = new ROSLIB.Service({
       ros: ros,
-      name: `${AGENT_NODE}/auto_pick`,
+      name: `pick_agent/auto_pick`,
       serviceType: "/grip_ros/AutomatePick"
     });
 
@@ -382,6 +380,30 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
           {key: 'eval_notes', value: evalNotes}
         ],
         stamp: timestamp()
+      }, (success: boolean) => {
+        if (success) {
+          const nextPick = pickQueue.shift();
+          if (!nextPick) {
+            this.sendRecordEvent({
+              event_type: 'session_end',
+              metadata: [],
+              stamp: timestamp()
+            });
+            this.setState({finished: true});
+            return;
+          }
+
+          setTimeout(
+            () => {
+            this.sendRecordEvent({
+              event_type: 'pick_start',
+              metadata: [{key: 'bin_id', value: nextPick.bin_id}, {key: 'item_id', value: nextPick.item_id.toString()}],
+              stamp: timestamp()
+            });
+            this.setState({pickQueue: pickQueue});
+            this.sendPickRequest(nextPick!);
+            }, 3000);
+        }
       });
 
 
@@ -390,28 +412,6 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
         stepMessage: "",
         loading: true
       });
-
-      const nextPick = pickQueue.shift();
-      if (!nextPick) {
-        this.sendRecordEvent({
-          event_type: 'session_end',
-          metadata: [],
-          stamp: timestamp()
-        });
-        this.setState({finished: true});
-        return;
-      }
-
-      setTimeout(
-        () => {
-          this.sendRecordEvent({
-            event_type: 'pick_start',
-            metadata: [{key: 'bin_id', value: nextPick.bin_id}, {key: 'item_id', value: nextPick.item_id.toString()}],
-            stamp: timestamp()
-          });
-          this.setState({pickQueue: pickQueue});
-          this.sendPickRequest(nextPick!);
-        }, 8000);
       
     });
 
@@ -704,6 +704,54 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
     return false;
   }
 
+  renderMaskTool(targetItem: any) {
+    const {stepMessage, availablePrimitiveType, ros, targetBin, targetObject} = this.state;
+
+    if (availablePrimitiveType == PrimitiveType.None) {
+      return (
+        <Stack spacing={2}>
+            <Card>
+                <CardContent>
+                  <Typography sx={{ mb: 2 }}>
+                    {stepMessage}
+                  </Typography>
+                  <img src={loading} />
+                </CardContent>
+              </Card>
+            </Stack>
+      )
+    }
+
+    return (
+      <div style={{width:'90%', maxWidth: '1200px', margin: 'auto'}}>
+        <ImageTopicMaskTool
+          topicName="/binCamera/compressed"
+          ros={ros!}
+          handleMaskSaved={(mask, image) => {
+            const maskData = mask.src.replace('data:image/png;base64,', '');
+            const imageData = image.src.replace('data:image/jpg;base64,', '');
+            // const maskBuffer = Buffer.from(maskData, 'base64');
+            // const imageBuffer = Buffer.from(imageData, 'base64');
+
+            const automatePickReq = {
+              'bin_id': targetBin!,
+              'item_id': targetObject!,
+              'item_description': targetItem!.description,
+              'mask': {
+                'format': "png",
+                'data': maskData
+              },
+              'image': {
+                'format': "jpeg",
+                'data': imageData
+              }
+            }
+            this.sendAutomatePick(automatePickReq);
+          }} />
+        </div>
+    )
+  }
+
   renderControls() {
     const {stepMessage, availablePrimitiveType, gripperWidth, distanceToTarget, selectingTarget, selectedTarget, currentStep, rosExecPrimitiveService, targetBin, targetObject} = this.state;
 
@@ -954,7 +1002,7 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
                 Instructions
               </Button>
 
-              <Button color="warning" variant="contained" size="small">
+              <Button onClick={() => this.sendAutomatePick({'skip': true})} color="warning" variant="contained" size="small">
                 Abort Pick
               </Button>
             </div>
@@ -1020,34 +1068,7 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
             />
           </div>
           </>
-          ) : (
-            <>
-            <ImageTopicMaskTool
-              topicName="/binCamera/compressed"
-              ros={ros!}
-              handleMaskSaved={(mask, image) => {
-                const maskData = mask.src.replace('data:image/png;base64,', '');
-                const imageData = image.src.replace('data:image/jpg;base64,', '');
-                // const maskBuffer = Buffer.from(maskData, 'base64');
-                // const imageBuffer = Buffer.from(imageData, 'base64');
-
-                const automatePickReq = {
-                  'bin_id': targetBin!,
-                  'item_id': targetObject!,
-                  'item_description': targetItem!.description,
-                  'mask': {
-                    'format': "png",
-                    'data': maskData
-                  },
-                  'image': {
-                    'format': "jpeg",
-                    'data': imageData
-                  }
-                }
-                this.sendAutomatePick(automatePickReq);
-              }} />
-            </>
-          )}
+          ) : this.renderMaskTool(targetItem)}
           <Modal
             open={selectingTarget}
             onClose={() => this.setState({selectingTarget: false})}
@@ -1116,7 +1137,8 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
                       {value:'success', label: 'Successful pick'},
                       {value: 'fail_not_picked', label: 'Unable to pick target item'},
                       {value: 'fail_multipick', label: 'Picked additional items'},
-                      {value: 'fail_wrong_item', label: 'Picked wrong item'}
+                      {value: 'fail_wrong_item', label: 'Picked wrong item'},
+                      {value: 'fail_ignore', label: 'Ignore'}
                       ].map((option) => (
                       <MenuItem key={option.value} value={option.value}>
                         {option.label}
@@ -1125,7 +1147,9 @@ class AppAutoBaseline extends React.Component<IProps, IState> {
                   </TextField>
                 </Typography>
                 <Typography sx={{ mt: 2 }}>
-                  <TextField  id="outlined-basic" label="Notes" variant="outlined" value={evalNotes} />
+                  <TextField  id="outlined-basic" label="Notes" variant="outlined" value={evalNotes} onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    this.setState({evalNotes: event.target.value});
+                  }} />
                 </Typography>
                 <Typography sx={{ mt: 2 }}>
                   <Button color="success" variant="contained" onClick={() => this.handleSubmitEvalClick()}>

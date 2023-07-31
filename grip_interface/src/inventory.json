@@ -70,7 +70,8 @@
         {
             "id": 14,
             "description": "4 Pack Showa Atlas 370BLK Atlas Nitrile Tough Gloves - Small",
-            "images": ["front", "back", "side"]
+            "images": ["front", "back", "side"],
+            "disabled": true
         }
     ]
 }

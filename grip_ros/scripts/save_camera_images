@@ -1,0 +1,49 @@
+import rospy
+# ROS Image message
+from sensor_msgs.msg import Image
+# ROS Image message -> OpenCV2 image converter
+from cv_bridge import CvBridge, CvBridgeError
+# OpenCV2 for saving an image
+import cv2
+import rosbag
+import time
+
+# Instantiate CvBridge
+bridge = CvBridge()
+
+output_path = f'/home/hello-robot/.ros/data_collection_output/scene_images/scene_images_{time.strftime("%Y%m%d_%H%M%S")}.bag'
+
+
+latest_image = None
+
+def image_callback(msg):
+    global latest_image
+    latest_image = msg
+
+def main():
+    rospy.init_node('image_listener')
+    # Define your image topic
+    image_topic = "/binCamera"
+    # Set up your subscriber and define its callback
+    rospy.Subscriber(image_topic, Image, image_callback)
+    pick_images_bag = rosbag.Bag(output_path, 'w')
+
+    while(True):
+        result = input("Waiting...")
+        if result == 'exit':
+            break
+        if result == 'save' or result == 's':
+            print("Saving!")
+            if latest_image is None:
+                print("No image!")
+                continue
+            pick_images_bag.write('/scene_images', latest_image, latest_image.header.stamp)
+    
+    pick_images_bag.close()
+
+
+    # Spin until ctrl + c
+    # rospy.spin()
+
+if __name__ == '__main__':
+    main()

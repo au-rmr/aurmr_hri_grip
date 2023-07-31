@@ -198,10 +198,10 @@ class Stretch:
         self.move_base_client.send_goal(goal)
         self.move_base_client.wait_for_result()
     
-    def move_to_pose(self, pose, return_before_done=False, custom_contact_thresholds=False):
+    def move_to_pose(self, pose, return_before_done=False, custom_contact_thresholds=False, time_from_start=rospy.Duration(1.0)):
         joint_names = [key for key in pose]
         point = JointTrajectoryPoint()
-        point.time_from_start = rospy.Duration(1.5)
+        point.time_from_start = time_from_start
 
         trajectory_goal = FollowJointTrajectoryGoal()
         trajectory_goal.goal_time_tolerance = rospy.Time(2.0)

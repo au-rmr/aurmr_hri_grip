@@ -59,6 +59,7 @@ add_message_files(
   StepTransition.msg
   Event.msg
   CropInfo.msg
+  RecordedImages.msg
 )
 
 # Generate services in the 'srv' folder
@@ -183,7 +184,9 @@ catkin_install_python(PROGRAMS
   scripts/send_execute_primitive_request
   scripts/send_abort
   scripts/save_camera_image
+  scripts/save_camera_images
   scripts/pick_agent_baseline
+  scripts/pick_agent
   scripts/annotate_masks
   nodes/publish_bin_images
   nodes/data_collection

@@ -76,11 +76,12 @@ export interface PickRequest {
 }
 
 export interface AutomatePick {
-    bin_id: string,
-    item_id: number,
-    item_description: string,
-    image: any,
-    mask: any
+    bin_id?: string,
+    item_id?: number,
+    item_description?: string,
+    image?: any,
+    mask?: any,
+    skip?: boolean
 }
 
 export interface AnnotateMaskGoal {

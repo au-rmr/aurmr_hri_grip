@@ -1,0 +1,259 @@
+import argparse
+import os
+from functools import partial
+
+import cv2
+import rospy
+import cv_bridge
+import numpy as np
+import torch
+import imageio
+from sensor_msgs.msg import Image
+
+from transformers import VideoMAEImageProcessor
+
+from grip_ros import control_flow as cf, evaluation, motion, stretch
+from grip_ros.srv import AutomatePick, ExecutePrimitive
+from grip_ros.msg import StepTransition, KeyValue, RecordedImages
+from grip_learning.models.policy.swinv2 import Swinv2GraspPolicy
+from grip_learning.models.classifier.videomae import VideoMAEForGraspClassification
+from grip_learning.utils.data import get_pixel_values, preprocess_message_for_classification
+
+
+def dict_to_kv(params):
+    kv_list = []
+    for k,v in params.items():
+        kv_list.append(KeyValue(key=k, value=v))
+    return kv_list
+
+class PickAgentDriver:
+    def __init__(self, agent, classifier=None, visualize=False):
+        self.visualize = visualize
+        self.service = rospy.Service('~auto_pick', AutomatePick, self.perform_pick)
+
+        self.bridge = cv_bridge.CvBridge()
+        self.primitive_service = rospy.ServiceProxy('/pick/execute_primitive', ExecutePrimitive)
+
+        # self.gripper_image_subscriber = rospy.Subscriber("/data_collection/recorded_wrist_images", RecordedImages, self.gripper_image_callback)
+        # self.latest_gripper_image = None
+
+        if os.path.exists(agent):
+            grasp_policy_model, grasp_policy_processor, grasp_policy_config = Swinv2GraspPolicy.from_pretrained(agent, return_processor_and_config=True)
+            self.grasp_policy_model = grasp_policy_model
+            self.grasp_policy_processor = grasp_policy_processor
+            self.grasp_policy_config = grasp_policy_config
+            self.agent = 'pytorch_model'
+        else:
+            self.agent = agent
+
+        if classifier is not None:
+            self.grasp_classifier_model = VideoMAEForGraspClassification.from_pretrained(classifier)
+            self.grasp_classifier_processor = VideoMAEImageProcessor.from_pretrained('MCG-NJU/videomae-base-ssv2')
+
+    
+    def spin(self):
+        rospy.spin()
+    
+    def gripper_image_callback(self, image):
+        self.latest_gripper_image = image
+        # image = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
+        # self.gripper_images.append(image)
+
+    def baseline_random_pick(self, mask, image):
+        raise NotImplementedError('Random pick not implemented')
+
+    def baseline_centroid_pick(self, mask, image):
+        mask_binary = (mask[:,:,3:4] > 0).astype('uint8')
+        (numLabels, labels, stats, centroids) = cv2.connectedComponentsWithStats(mask_binary, 8, cv2.CV_32S)
+        coi = np.argmax(stats[1:,4:5]) + 1
+        point = centroids[coi].round().astype(int)
+        u = point[0] / image.shape[0]
+        v = point[1] / image.shape[1]
+        width = 0.05
+        z_padding = 0.0
+        return u, v, width, z_padding
+
+    def pytorch_model_pick(self, mask, image):
+        if mask.shape[2] == 4:
+            mask = mask[:,:,0:3] # Shave off alpha channel
+        print('Getting pixel values')
+        pixel_values = get_pixel_values(self.grasp_policy_processor, image, mask, self.grasp_policy_config['visual_features'])
+
+        with torch.no_grad():
+            print('Forward pass')
+            logits = self.grasp_policy_model(pixel_values.unsqueeze(0))['logits'].squeeze()
+
+        print('Inspecting logits..')
+        u, v = logits[0:2].round().int().numpy()
+        u = u / image.shape[0]
+        v = v / image.shape[1]
+        z_padding = (logits[2] / 100).numpy()
+        width = (logits[3] / 100).numpy()
+        print('Returning logits...')
+        return u, v, width, z_padding
+
+    def classify_grasp(self, recorded_images_msg):
+        video, cv_images = preprocess_message_for_classification(
+            self.bridge, self.grasp_classifier_model, self.grasp_classifier_processor, recorded_images_msg)
+        
+        out_vid_writer = cv2.VideoWriter('./online_classified_probe.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 10.0, (224, 224))
+        for img in cv_images:
+            # img = img.copy()
+            # cv2.putText(img, 'Multipick', (20,80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+            out_vid_writer.write(img)
+        out_vid_writer.release()
+        
+        # (num_frames, num_channels, height, width)
+        video = video.permute(1, 0, 2, 3)
+
+        inputs = {
+            "pixel_values": video.unsqueeze(0),
+        }
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+        self.grasp_classifier_model = self.grasp_classifier_model.to(device)
+
+        # forward pass
+        with torch.no_grad():
+            outputs = self.grasp_classifier_model(**inputs)
+            logits = outputs.logits
+        
+        predicted_class_idx = logits.argmax(-1).item()
+        predicted_class_str = self.grasp_classifier_model.config.id2label[predicted_class_idx]
+
+        return predicted_class_str
+
+    def perform_grasp(self, u, v, width, z_padding):
+        print(f'u: {u}, v: {v}, z_padding: {z_padding}, width: {width}')
+        # import pdb; pdb.set_trace()
+
+        # Send pick primitive using point as x,y
+        # align_prim = ExecutePrimitive()
+        # align_prim.primitive_name = 'align_target'
+        print("Aligning to target")
+        self.primitive_service('align_target', dict_to_kv({
+            'x': str(u),
+            'y': str(v),
+        }))
+
+        # rospy.sleep(3)
+
+        print("Setting gripper width")
+        self.primitive_service('set_gripper_width', dict_to_kv({
+            'width': str(width),
+        }))
+
+        rospy.sleep(1)
+
+        print("Extending arm")
+        self.primitive_service('extend_arm', dict_to_kv({
+            # 'padding': '-0.05',
+            'padding': str(z_padding),
+        }))
+
+        print("Closing gripper")
+        self.primitive_service('close_gripper', [])
+
+        rospy.sleep(1)
+
+    def perform_pick(self, pick_req):
+        print('recieved pick request')
+        if pick_req.skip:
+            print("Sending done grasping...")
+            self.primitive_service('done', [])
+            rospy.sleep(1)
+            print("Sending done probing...")
+            self.primitive_service('done', [])
+            rospy.sleep(1)
+            print("Sending done extracting...")
+            self.primitive_service('done', [])
+            return
+
+        mask = pick_req.mask
+        image = pick_req.image
+
+        mask = self.bridge.compressed_imgmsg_to_cv2(mask, desired_encoding='passthrough')
+        image = self.bridge.compressed_imgmsg_to_cv2(image, desired_encoding='passthrough')
+
+        print('Performing grasp...')
+        if self.agent == 'baseline_centroid':
+            u, v, width, z_padding = self.baseline_centroid_pick(mask, image)
+        elif self.agent == 'baseline_random':
+            u, v, width, z_padding = self.baseline_random_pick(mask, image)
+        elif self.agent == 'pytorch_model':
+            u, v, width, z_padding = self.pytorch_model_pick(mask, image)
+        else:
+            raise NotImplementedError(f'Pick agent {self.agent} not implemented')
+
+        if self.visualize:
+            import matplotlib.pyplot as plt
+            print('Visualizing...')
+            point_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            point_img = cv2.circle(point_img, (int(u*image.shape[0]),int(v*image.shape[1])), 10, (0, 255, 0), 5)
+            plt.imshow(point_img);plt.show()
+            # cv2.imshow(f'point_{str(uuid.uuid4())}', point_img)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
+        self.perform_grasp(u, v, width, z_padding)
+
+        print("Sending done grasping...")
+        self.primitive_service('done', [])
+
+        rospy.sleep(1)
+
+        print("Probing...")
+
+        self.primitive_service('probe_super', [])
+
+        print("Waiting for recorded images...")
+        recorded_images_msg = rospy.wait_for_message('/data_collection/recorded_wrist_images', RecordedImages, timeout=60)
+
+        predicted_grasp_class = self.classify_grasp(recorded_images_msg)
+        print(f'Predicted grasp class: {predicted_grasp_class}')
+        import pdb; pdb.set_trace()
+        # loop_rate = rospy.Rate(4.0)
+        # gripper_images = []
+        # while len(gripper_images) < 25:
+        #     cv_image = self.bridge.imgmsg_to_cv2(self.latest_gripper_image, desired_encoding='passthrough')
+        #     gripper_images.append(cv_image)
+        #     loop_rate.sleep()
+
+        # TODO: call probe_super
+        # TODO: record outcome
+        # TODO: run outcome through network
+        # TODO: up to ~5 times: reset_for_regrasp (?) then call perform_grasp again
+
+
+        print("Sending done probing...")
+        # imageio.mimsave('./probe_anim.gif', gripper_images)
+        import pdb; pdb.set_trace()
+        self.primitive_service('done', [])
+
+        rospy.sleep(1)
+
+        print("Lifting and pulling back...")
+        self.primitive_service('lift', [])
+        rospy.sleep(1)
+        self.primitive_service('pull_back', [])
+
+        print("Sending done extracting...")
+        self.primitive_service('done', [])
+
+
+def main(args):
+    print(f'Running automated pick agent ({args.agent})')
+    rospy.init_node("pick_agent")
+    driver = PickAgentDriver(agent=args.agent,
+                             classifier=args.classifier,
+                             visualize=args.visualize)    
+    driver.spin()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-a', '--agent', type=str, default='baseline_centroid', help='Pick agent to run')
+    parser.add_argument('-c', '--classifier', type=str, default=None, help='Pick classifier to run')
+    parser.add_argument('-v', '--visualize', action='store_true', help='Visualize pick agent grasps')
+    args = parser.parse_args()
+    main(args)

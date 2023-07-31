@@ -363,6 +363,30 @@ class App extends React.Component<IProps, IState> {
           {key: 'eval_notes', value: evalNotes}
         ],
         stamp: timestamp()
+      }, (success: boolean) => {
+        if (success) {
+          const nextPick = pickQueue.shift();
+          if (!nextPick) {
+            this.sendRecordEvent({
+              event_type: 'session_end',
+              metadata: [],
+              stamp: timestamp()
+            });
+            this.setState({finished: true});
+            return;
+          }
+
+          setTimeout(
+            () => {
+              this.sendRecordEvent({
+                event_type: 'pick_start',
+                metadata: [{key: 'bin_id', value: nextPick.bin_id}, {key: 'item_id', value: nextPick.item_id.toString()}],
+                stamp: timestamp()
+              });
+              this.setState({pickQueue: pickQueue});
+              this.sendPickRequest(nextPick!);
+            }, 3000);
+          }
       });
 
 
@@ -372,27 +396,7 @@ class App extends React.Component<IProps, IState> {
         loading: true
       });
 
-      const nextPick = pickQueue.shift();
-      if (!nextPick) {
-        this.sendRecordEvent({
-          event_type: 'session_end',
-          metadata: [],
-          stamp: timestamp()
-        });
-        this.setState({finished: true});
-        return;
-      }
-
-      setTimeout(
-        () => {
-          this.sendRecordEvent({
-            event_type: 'pick_start',
-            metadata: [{key: 'bin_id', value: nextPick.bin_id}, {key: 'item_id', value: nextPick.item_id.toString()}],
-            stamp: timestamp()
-          });
-          this.setState({pickQueue: pickQueue});
-          this.sendPickRequest(nextPick!);
-        }, 8000);
+      
       
     });
 
@@ -1065,7 +1069,8 @@ class App extends React.Component<IProps, IState> {
                       {value:'success', label: 'Successful pick'},
                       {value: 'fail_not_picked', label: 'Unable to pick target item'},
                       {value: 'fail_multipick', label: 'Picked additional items'},
-                      {value: 'fail_wrong_item', label: 'Picked wrong item'}
+                      {value: 'fail_wrong_item', label: 'Picked wrong item'},
+                      {value: 'fail_ignore', label: 'Ignore this pick'}
                       ].map((option) => (
                       <MenuItem key={option.value} value={option.value}>
                         {option.label}
@@ -1074,7 +1079,9 @@ class App extends React.Component<IProps, IState> {
                   </TextField>
                 </Typography>
                 <Typography sx={{ mt: 2 }}>
-                  <TextField  id="outlined-basic" label="Notes" variant="outlined" value={evalNotes} />
+                  <TextField  id="outlined-basic" label="Notes" variant="outlined" value={evalNotes} onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    this.setState({evalNotes: event.target.value});
+                  }} />
                 </Typography>
                 <Typography sx={{ mt: 2 }}>
                   <Button color="success" variant="contained" onClick={() => this.handleSubmitEvalClick()}>
