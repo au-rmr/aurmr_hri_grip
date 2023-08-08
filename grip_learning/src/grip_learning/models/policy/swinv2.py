@@ -30,7 +30,8 @@ class Swinv2GraspPolicy(Swinv2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
-        self.swinv2 = Swinv2Model(config, add_pooling_layer=False, use_mask_token=True)
+        # self.swinv2 = Swinv2Model(config, add_pooling_layer=False, use_mask_token=True)
+        # self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14')
 
         self.num_labels = config.num_labels
         self.swinv2 = Swinv2Model(config)

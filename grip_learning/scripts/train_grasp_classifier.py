@@ -189,21 +189,24 @@ def main(args):
     )
 
     train_ds = GraspClassifierDataset(
-        data_path=os.path.join(args.input, 'train'),
+        data_path=os.path.join(args.input, 'train.csv'),
+        video_path_prefix=args.input,
         clip_sampler=pytorchvideo.data.make_clip_sampler("random", clip_duration),
         decode_audio=False,
         transform=train_transform,
     )
 
     eval_ds = GraspClassifierDataset(
-        data_path=os.path.join(args.input, "val"),
+        data_path=os.path.join(args.input, "val.csv"),
+        video_path_prefix=args.input,
         clip_sampler=pytorchvideo.data.make_clip_sampler("uniform", clip_duration),
         decode_audio=False,
         transform=val_transform,
     )
 
     test_ds = GraspClassifierDataset(
-        data_path=os.path.join(args.input, "test"),
+        data_path=os.path.join(args.input, "test.csv"),
+        video_path_prefix=args.input,
         clip_sampler=pytorchvideo.data.make_clip_sampler("uniform", clip_duration),
         decode_audio=False,
         transform=val_transform,

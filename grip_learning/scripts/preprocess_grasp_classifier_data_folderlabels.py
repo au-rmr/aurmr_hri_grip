@@ -38,7 +38,7 @@ def process_pick_folder(pick_folder, output_folder):
 
     if not os.path.exists(os.path.join(pick_folder, 'pick_events.json')):
         print(f'No pick events JSON found in {pick_folder}')
-        return
+        return []
 
     with open(os.path.join(pick_folder, 'pick_events.json'), 'r') as f:
         pick_events = json.load(f)
@@ -93,7 +93,7 @@ def process_pick_folder(pick_folder, output_folder):
                 cv_im = cv2.cvtColor(cv_im, cv2.COLOR_BGR2RGB)
                 cv_im = cv_im[:,100:1024-100]
                 cv_im = cv2.resize(cv_im, (224,224))
-                probe_images.append(cv_im)    
+                probe_images.append(cv_im)  
         pick_images.close()
     
         out_vid_name = os.path.join(output_folder, f'{probe_uuid}.mp4')
@@ -104,12 +104,14 @@ def process_pick_folder(pick_folder, output_folder):
             out_vid_writer.write(img)
         out_vid_writer.release()
 
-        if args.binary:
-            outcome_id = CLASS_STRING_TO_INT_BINARY[outcome]
-        else:
-            outcome_id = CLASS_STRING_TO_INT[outcome]
+        # if args.binary:
+        #     outcome_id = CLASS_STRING_TO_INT_BINARY[outcome]
+        # else:
+        #     outcome_id = CLASS_STRING_TO_INT[outcome]
+        if outcome == 'fail_wrong_item':
+            outcome = 'success'
 
-        annotations.append((probe_uuid, outcome_id))
+        annotations.append((probe_uuid, outcome))
 
     return annotations
 
@@ -118,6 +120,10 @@ def main(args):
     # Create output directory if it doesn't exist
     if not os.path.exists(args.output):
         os.makedirs(args.output)
+    
+    for split in ['train', 'test', 'val']:
+        if not os.path.exists(os.path.join(args.output, split)):
+            os.makedirs(os.path.join(args.output, split))
     
     # Get list of session folders in input directory
     session_folders = [os.path.join(args.input, f) for f in os.listdir(args.input) if os.path.isdir(os.path.join(args.input, f))]
@@ -128,10 +134,9 @@ def main(args):
         pick_folders = [os.path.join(session_folder, f) for f in os.listdir(session_folder) if os.path.isdir(os.path.join(session_folder, f))]
         for pick_folder in pick_folders:
             annotations.extend(process_pick_folder(pick_folder, args.output))
-
-    np.random.shuffle(annotations)
-
+    
     # Split annotations into train test and eval sets
+    np.random.shuffle(annotations)
     if args.test_only:
         test_annotations = annotations
         train_annotations = []
@@ -141,16 +146,29 @@ def main(args):
         test_annotations = annotations[int(0.8*len(annotations)):int(0.9*len(annotations))]
         eval_annotations = annotations[int(0.9*len(annotations)):]
 
-    # Write annotations to file
-    if len(train_annotations) > 0:
-        with open(os.path.join(args.output, 'train.csv'), 'w') as f:
-            f.writelines([f'{uuid}.mp4 {outcome}\n' for uuid, outcome in train_annotations])
-    if len(test_annotations) > 0:
-        with open(os.path.join(args.output, 'test.csv'), 'w') as f:
-            f.writelines([f'{uuid}.mp4 {outcome}\n' for uuid, outcome in test_annotations])
-    if len(eval_annotations) > 0:
-        with open(os.path.join(args.output, 'val.csv'), 'w') as f:
-            f.writelines([f'{uuid}.mp4 {outcome}\n' for uuid, outcome in eval_annotations])
+    for probe_uuid, outcome in train_annotations:
+        if not os.path.exists(os.path.join(args.output, 'train', outcome)):
+            os.makedirs(os.path.join(args.output, 'train', outcome))
+        os.rename(os.path.join(args.output, f'{probe_uuid}.mp4'), os.path.join(args.output, 'train', outcome, f'{probe_uuid}.mp4'))
+    
+    for probe_uuid, outcome in test_annotations:
+        if not os.path.exists(os.path.join(args.output, 'test', outcome)):
+            os.makedirs(os.path.join(args.output, 'test', outcome))
+        os.rename(os.path.join(args.output, f'{probe_uuid}.mp4'), os.path.join(args.output, 'test', outcome, f'{probe_uuid}.mp4'))
+    
+    for probe_uuid, outcome in eval_annotations:
+        if not os.path.exists(os.path.join(args.output, 'val', outcome)):
+            os.makedirs(os.path.join(args.output, 'val', outcome))
+        os.rename(os.path.join(args.output, f'{probe_uuid}.mp4'), os.path.join(args.output, 'val', outcome, f'{probe_uuid}.mp4'))
+
+
+    # # Write annotations to file
+    # with open(os.path.join(args.output, 'train.csv'), 'w') as f:
+    #     f.writelines([f'{uuid}.mp4 {outcome}\n' for uuid, outcome in train_annotations])
+    # with open(os.path.join(args.output, 'test.csv'), 'w') as f:
+    #     f.writelines([f'{uuid}.mp4 {outcome}\n' for uuid, outcome in test_annotations])
+    # with open(os.path.join(args.output, 'val.csv'), 'w') as f:
+    #     f.writelines([f'{uuid}.mp4 {outcome}\n' for uuid, outcome in eval_annotations])
 
 
 if __name__ == '__main__':

@@ -24,6 +24,8 @@ CLASS_STRING_TO_INT_BINARY = {
 }
 
 
+
+
 def metadata_to_dict(metadata):
     md_dict = {}
     for md in metadata:
@@ -57,7 +59,8 @@ def process_pick_folder(pick_folder, output_folder):
 
     align_labels = {}
     all_aligns= []
-    successful_aligns = []
+    # successful_aligns = []
+    valid_aligns = []
     latest_align_uuid = None
     latest_pick_item_id = None
     latest_pick_bin_id = None
@@ -75,7 +78,8 @@ def process_pick_folder(pick_folder, output_folder):
                     'x': float(pick_event['metadata']['x']),
                     'y': float(pick_event['metadata']['y']),
                     'item_id': int(latest_pick_item_id),
-                    'bin_id': latest_pick_bin_id
+                    'bin_id': latest_pick_bin_id,
+                    'grasp_history': []
                 }
             if pick_event['metadata']['primitive_name'] == 'set_gripper_width':
                 align_labels[latest_align_uuid]['width'] = float(pick_event['metadata']['width'])
@@ -84,10 +88,13 @@ def process_pick_folder(pick_folder, output_folder):
         if pick_event['event_type'] == 'pick_eval':
             if pick_event['metadata']['ignore'] == 'true':
                 continue
-            if pick_event['metadata']['eval_code'] == 'success':
-                successful_aligns.append(latest_align_uuid)
+            if pick_event['metadata']['eval_code'] in ['fail_wrong_item', 'fail_ignore', 'fail_not_picked']:
+                continue
+            align_labels[latest_align_uuid]['eval_code'] = pick_event['metadata']['eval_code']
+            align_labels[latest_align_uuid]['eval_notes'] = pick_event['metadata']['eval_notes']
+            valid_aligns.append(latest_align_uuid)
 
-    for uuid in successful_aligns:
+    for uuid in valid_aligns:
         target_image = None
         pick_images = rosbag.Bag(os.path.join(pick_folder, 'pick_images.bag'))
         for img in pick_images:
@@ -107,6 +114,7 @@ def process_pick_folder(pick_folder, output_folder):
         target_image_label = target_image.copy()
         radius = 4
         cv2.circle(target_image_label,(int(x*target_image_label.shape[0]) - radius,int(y*target_image_label.shape[1]) - radius), radius, (0,255,0), -1)
+        cv2.putText(target_image_label, labels['eval_code'], (10,10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0,255,0), 1, 2)
         cv2.imwrite(os.path.join(output_folder, f'{pick_uuid}_{uuid}_label.png'), target_image_label)
         cv2.imwrite(os.path.join(output_folder, f'{pick_uuid}_{uuid}.png'), target_image)
 

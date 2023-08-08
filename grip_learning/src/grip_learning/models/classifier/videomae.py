@@ -28,6 +28,9 @@ class VideoMAEForGraspClassification(VideoMAEPreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
+    # def save_checkpoint(self, output_dir: str):
+    #     self.save_pretrained(output_dir)
+
     def forward(
         self,
         pixel_values: Optional[torch.Tensor] = None,
