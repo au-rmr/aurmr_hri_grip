@@ -37,6 +37,10 @@ def process_pick_folder(pick_folder, output_folder):
     if not os.path.exists(os.path.join(pick_folder, 'pick_events.json')):
         print(f'No pick events JSON found in {pick_folder}')
         return
+    
+    if not os.path.exists(os.path.join(pick_folder, 'pick_images.bag')):
+        print(f'No pick images bag found in {pick_folder}')
+        return
 
     with open(os.path.join(pick_folder, 'pick_events.json'), 'r') as f:
         pick_events = json.load(f)
@@ -88,38 +92,45 @@ def process_pick_folder(pick_folder, output_folder):
         if pick_event['event_type'] == 'pick_eval':
             if pick_event['metadata']['ignore'] == 'true':
                 continue
-            if pick_event['metadata']['eval_code'] in ['fail_wrong_item', 'fail_ignore', 'fail_not_picked']:
+            if pick_event['metadata']['eval_code'] in ['fail_ignore', 'fail_wrong_item']:
                 continue
+            if '_SL_dc' in pick_folder and pick_event['metadata']['eval_code'] == 'fail_not_picked':
+                continue
+            align_labels[latest_align_uuid]['success'] = pick_event['metadata']['eval_code'] == 'success'
             align_labels[latest_align_uuid]['eval_code'] = pick_event['metadata']['eval_code']
             align_labels[latest_align_uuid]['eval_notes'] = pick_event['metadata']['eval_notes']
             valid_aligns.append(latest_align_uuid)
 
-    for uuid in valid_aligns:
-        target_image = None
-        pick_images = rosbag.Bag(os.path.join(pick_folder, 'pick_images.bag'))
-        for img in pick_images:
-            if img.topic == f'/align_target/{uuid}':
-                target_image = bridge.imgmsg_to_cv2(img.message)
-                # target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
-                break
-        pick_images.close()
+    train_aligns = valid_aligns[:int(0.8*len(valid_aligns))]
+    eval_aligns = valid_aligns[int(0.8*len(valid_aligns)):]
 
-        if target_image is None:
-            raise Exception(f'Could not find target image for {uuid}')
+    for split_folder, aligns in zip(['train', 'eval'], [train_aligns, eval_aligns]):
+        for uuid in aligns:
+            target_image = None
+            pick_images = rosbag.Bag(os.path.join(pick_folder, 'pick_images.bag'))
+            for img in pick_images:
+                if img.topic == f'/align_target/{uuid}':
+                    target_image = bridge.imgmsg_to_cv2(img.message)
+                    # target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
+                    break
+            pick_images.close()
 
-        labels = align_labels[uuid]
+            if target_image is None:
+                raise Exception(f'Could not find target image for {uuid}')
 
-        x = labels['x']
-        y = labels['y']
-        target_image_label = target_image.copy()
-        radius = 4
-        cv2.circle(target_image_label,(int(x*target_image_label.shape[0]) - radius,int(y*target_image_label.shape[1]) - radius), radius, (0,255,0), -1)
-        cv2.putText(target_image_label, labels['eval_code'], (10,10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0,255,0), 1, 2)
-        cv2.imwrite(os.path.join(output_folder, f'{pick_uuid}_{uuid}_label.png'), target_image_label)
-        cv2.imwrite(os.path.join(output_folder, f'{pick_uuid}_{uuid}.png'), target_image)
+            labels = align_labels[uuid]
 
-        with open(os.path.join(output_folder, f'{pick_uuid}_{uuid}.json'), 'w') as f:
-            json.dump(labels, f)
+            x = labels['x']
+            y = labels['y']
+            target_image_label = target_image.copy()
+            radius = 4
+            cv2.circle(target_image_label,(int(x*target_image_label.shape[0]) - radius,int(y*target_image_label.shape[1]) - radius), radius, (0,255,0), -1)
+            cv2.putText(target_image_label, labels['eval_code'], (10,10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0,255,0), 1, 2)
+            cv2.imwrite(os.path.join(output_folder, f'{pick_uuid}_{uuid}_label.png'), target_image_label)
+            cv2.imwrite(os.path.join(output_folder, f'{pick_uuid}_{uuid}.png'), target_image)
+
+            with open(os.path.join(output_folder, split_folder, f'{pick_uuid}_{uuid}.json'), 'w') as f:
+                json.dump(labels, f)
 
     #####
     # probe_topics = [f'/probe_super/{uuid}' for uuid in probe_execs]
@@ -164,8 +175,11 @@ def process_pick_folder(pick_folder, output_folder):
 
 def main(args):
     # Create output directory if it doesn't exist
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
+    for path in [args.output, os.path.join(args.output, 'train'), os.path.join(args.output, 'eval')]:
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+    
     
     # Get list of session folders in input directory
     session_folders = [os.path.join(args.input, f) for f in os.listdir(args.input) if os.path.isdir(os.path.join(args.input, f))]
