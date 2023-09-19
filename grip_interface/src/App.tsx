@@ -723,7 +723,10 @@ class App extends React.Component<IProps, IState> {
             </Card>
             <Button onClick={() => this.handleNextStepClick()} endIcon={<NavigateNextIcon />} style={{marginTop:'40px', fontWeight: 'bold'}} size="large">Next Step</Button>
             {window.exp('streamlined') ? (
+              <>
               <Button onClick={() => this.sendDone()}  style={{marginTop:'10px', fontWeight: 'bold'}} size="large">Skip</Button>
+              <Button onClick={() => this.sendRecordEvent({event_type: 'pick_retry_end', metadata: [], stamp: timestamp()})}  style={{marginTop:'10px', fontWeight: 'bold'}} size="large">Stop Retrying</Button>
+              </>
             ) : null}
           </Stack>
         )

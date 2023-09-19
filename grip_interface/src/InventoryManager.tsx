@@ -291,7 +291,7 @@ export const StreamlinedPickModal = (props: {
             <div className='review-picks'>
                 <div className='review-picks-items'>
                     {items.map((item: any) => (
-                        <div onClick={() => setSelectedItem(item.id)} className={`review-picks-item ${item.id === selectedItem ? 'review-picks-item-selected' : ''}`}>
+                        <div onClick={() => setSelectedItem(item.id)} className={`review-picks-item ${item.id === selectedItem ? 'review-picks-item-selected' : ''} ${item.holdout ? 'review-picks-item-holdout' : ''}`}>
                                 <div className='review-picks-bin'>{item.bin}</div>
                                 <img className='review-picks-img' src={"/item_images/" + String(item.id).padStart(3, '0') + '_front.jpg'} />
                                 <div className='review-picks-description'>{item.description}</div>

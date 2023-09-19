@@ -270,6 +270,14 @@
   border: 1px solid #5bbd4e;
 }
 
+.review-picks-item-holdout {
+  border: 1px solid #cf5959;
+}
+
+.review-picks-item-holdout.review-picks-item-selected {
+  border: 1px solid #881c1c;
+}
+
 .review-picks-list {
   user-select: none;
 }

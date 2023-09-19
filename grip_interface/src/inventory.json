@@ -72,6 +72,244 @@
             "description": "4 Pack Showa Atlas 370BLK Atlas Nitrile Tough Gloves - Small",
             "images": ["front", "back", "side"],
             "disabled": true
+        },
+        {
+            "id": 15,
+            "description": "Blender Bottle Classic - Silver",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 16,
+            "description": "Vitafusion Probiotic Gummies, 70 ct",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 17,
+            "description": "Burt's Bee's Baby 100% Organic Cotton Baby Onesie - Floral",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 18,
+            "description": "Onesies Brand Baby Onesie with Rabbits - White",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 19,
+            "description": "Euri Lighting LED Bulb A19, AC120-277V, 1600 Lumens, 14W",
+            "images": ["front", "back", "side"],
+            "tags": ["oversized", "rigid"],
+            "disabled": true
+        },
+        {
+            "id": 20,
+            "description": "Labelife Compatable Label Tape Replacement Laminated Black on White, 3-Pack",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 21,
+            "description": "Hanes Men's Durable Tough Crew Socks, 6 Pack",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 22,
+            "description": "Red Heart Super Saver Yarn, 7oz, Rainbow",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 23,
+            "description": "Hanes Women's Amaranth Heather V-Neck Tee",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 24,
+            "description": "Lion Brand Baby Soft Yarn, 5oz, White",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 25,
+            "description": "Quiksilver Carver Suede Youth Flip-Fliop",
+            "images": ["front", "back"],
+            "holdout": true,
+            "difficult": true
+        },
+        {
+            "id": 26,
+            "description": "Under Armour Men's UA Tech 2.0 Short Sleeve T-Shirt",
+            "images": ["front", "back"],
+            "holdout": true
+        },
+        {
+            "id": 27,
+            "description": "TLAENSON Boys Camo Cargo Pants - Green",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 28,
+            "description": "Coffee Mug - White",
+            "images": ["front", "back"],
+            "holdout": true,
+            "difficult": true
+        },
+        {
+            "id": 29,
+            "description": "Mommy's Bliss Kids Sleep Liquid - 4oz",
+            "images": ["front", "back", "side"],
+            "holdout": true
+        },
+        {
+            "id": 30,
+            "description": "PDP Gaming Xbox One Talon Media Remote Control",
+            "images": ["front", "back", "side"],
+            "holdout": true
+        },
+        {
+            "id": 31,
+            "description": "Sharpie Permanent Markers, Fine Point, Multi-colored, 4 Count",
+            "images": ["front", "back"],
+            "holdout": true,
+            "difficult": true
+        },
+        {
+            "id": 32,
+            "description": "Place Brand Black Pants - Size 8 - Black",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 33,
+            "description": "Good Grips Citrus Juicer - Dishwasher Safe",
+            "images": ["front", "back"],
+            "holdout": true,
+            "difficult": true
+        },
+        {
+            "id": 34,
+            "description": "Planet Pleasures Pineapple Ornament",
+            "images": ["front", "back"],
+            "holdout": true,
+            "difficult": true
+        },
+        {
+            "id": 35,
+            "description": "Good Grips Potato Masher",
+            "images": ["front", "back"],
+            "disabled": true
+        },
+        {
+            "id": 36,
+            "description": "Zinc Bisglycinate 50 mg - 120 Veggie Capsules",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 37,
+            "description": "QuantumHealth SuperLysine+ Immune Support - 90 Tablets",
+            "images": ["front", "back"],
+            "disabled": true
+        },
+        {
+            "id": 38,
+            "description": "a-health Pain Relief Ibuprofen Capsules - 240 softgels",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 39,
+            "description": "Dynarex Sterile Alcohol Prep Pads - 200 pads",
+            "images": ["front", "back", "side"],
+            "disabled": true
+        },
+        {
+            "id": 40,
+            "description": "Black Winter Hat - One Size",
+            "images": ["front", "back"],
+            "holdout": true
+        },
+        {
+            "id": 41,
+            "description": "Star Pattern Decorative Art Table Cover",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 42,
+            "description": "Roxy Endless Summer Printed Boardshorts - Size 7 - Black and White",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 43,
+            "description": "Cherokee Inspired Comfort Scrub Shirt - Size L - Navy",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 44,
+            "description": "Fruit of the Loom Adult Sweatpants - Black",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 45,
+            "description": "Champion Adult Sweatpants - Black",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 46,
+            "description": "Under Armour Men's XL Shorts - Black",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 47,
+            "description": "Five Crowns Card Game",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 48,
+            "description": "Hamilton Beach TrueAir Replacement Carbon Filters - 3 count",
+            "images": ["front", "back", "side"],
+            "tags": ["oversized", "rigid"],
+            "disabled": true
+        },
+        {
+            "id": 49,
+            "description": "Barrel of Monkeys Game",
+            "images": ["front", "back", "side"],
+            "tags": ["oversized", "rigid"],
+            "disabled": true
+        },
+        {
+            "id": 50,
+            "description": "EDINBURGH 09 Blackwatch 27yds 100% Polyester Tartan Ribbon",
+            "images": ["front", "back", "side"],
+            "disabled": true
+        },
+        {
+            "id": 51,
+            "description": "Hallmark Ornament - 2019",
+            "images": ["front", "back", "side"],
+            "disabled": true
+        },
+        {
+            "id": 52,
+            "description": "Peter Thomas Wroth Un-Wrinkle Eye Concentrate - 0.5oz",
+            "images": ["front", "back", "side"]
+        },
+        {
+            "id": 53,
+            "description": "Good Grips Angled Measuring Cup - 2 cup",
+            "images": ["front", "back"]
+        },
+        {
+            "id": 54,
+            "description": "Natrol Melatonin Advanced Sleep Tablets - 100 count",
+            "images": ["front", "back", "side"],
+            "disabled": true
+        },
+        {
+            "id": 55,
+            "description": "YU33 Wireless Controllers (Purple, 2021, New)",
+            "images": ["front", "back", "side"],
+            "disabled": true
+        },
+        {
+            "id": 56,
+            "description": "Doctor's Best Vitamin D3 1000IU - 180 softgels",
+            "images": ["front", "back", "side"],
+            "holdout": true
         }
     ]
 }
