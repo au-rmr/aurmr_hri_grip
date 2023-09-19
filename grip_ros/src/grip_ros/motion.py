@@ -168,7 +168,7 @@ class Grasp(MotionPrimitiveServiceState):
     def image_callback(self, msg):
         img = self.cv_bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='passthrough')
         self.latest_image = img
-    
+
     def depth_image_callback(self, ros_depth_image):
         self.latest_depth_image = ros_numpy.numpify(ros_depth_image).astype(np.float32)
 
@@ -183,7 +183,7 @@ class Grasp(MotionPrimitiveServiceState):
         self.camera_model = image_geometry.PinholeCameraModel()
         self.camera_model.fromCameraInfo(msg)
         self.camera_info_subscriber.unregister() #Only subscribe once
-    
+
     def gripper_camera_info_callback(self, msg):
         self.gripper_camera_model = image_geometry.PinholeCameraModel()
         self.gripper_camera_model.fromCameraInfo(msg)
@@ -511,12 +511,13 @@ class Probe(MotionPrimitiveServiceState):
         })
         rospy.sleep(0.5)
         self.robot.move_to_pose({
-            'wrist_extension': cur_wrist_position + 0.02
+            'wrist_extension': cur_wrist_position + 0.01
+            # 'wrist_extension': cur_wrist_position + 0.005
         })
         self.robot.move_to_pose({
             'joint_lift': cur_position
         })
-    
+
 
     def execute(self, userdata):
         self.publish_step_transition(userdata)
@@ -575,7 +576,7 @@ class DropTargetObject(MotionState):
         super().__init__(robot, outcomes=['succeeded', 'preempted', 'aborted'], \
                             step_transition_publisher=step_transition_publisher, \
                             step_transition_message="Dropping object...")
-    
+
     def execute(self, userdata):
         self.publish_step_transition(userdata)
 

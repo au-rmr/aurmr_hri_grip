@@ -67,15 +67,16 @@ class Stretch:
         joint_lift = {
             "1A": 0.3,
             "1B": 0.5,
-            "1C": 0.7
+            "1C": 0.9
         }[bin_id]
+        print("RESET POSE W/ 1.5 DURATION??")
         self.move_to_pose({
             'joint_head_tilt': -0.5,
             'joint_head_pan': -3.14/2,
             'wrist_extension': 0.0,
             'joint_lift': joint_lift,
             'gripper_aperture': 0.0
-        })
+        }, time_from_start=rospy.Duration(1.5))
 
         starting_x = self.starting_x
         self.set_starting_x()
@@ -112,7 +113,7 @@ class Stretch:
         print(f"+= {diff_extension}")
         self.move_to_pose({
             'wrist_extension': cur_position + diff_extension
-        })
+        }, time_from_start=rospy.Duration(2.0))
 
     def move_lift_towards_goal(self, goal):
         t = self.tf2_buffer.get_latest_common_time('map', 'link_grasp_center')

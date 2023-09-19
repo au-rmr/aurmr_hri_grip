@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
 import rospy
+from cv_bridge import CvBridge
 import rosbag
 import message_filters
 import time
 import os
 import json
+import cv2
 
 from sensor_msgs.msg import Image
 
@@ -19,6 +21,8 @@ class DataCollectionNode:
         self.output_path = os.path.abspath(output_path)
         print(self.output_path)
 
+        self.bridge = CvBridge()
+
         if not os.path.exists(output_path):
             os.mkdir(output_path)
 
@@ -29,6 +33,8 @@ class DataCollectionNode:
         self._pick_image_bag = None
         self._pick_events = []
         self._latest_wrist_images = []
+        self._pick_grasp_count = 0
+        self._session_grasp_count = 0
 
         self.event_service = rospy.Service('~record_event', RecordEvent, self.record_event_callback)
         self.image_service = rospy.Service('~record_image', RecordImage, self.record_image_callback)
@@ -144,6 +150,15 @@ class DataCollectionNode:
         if req.event.event_type == Event.EVENT_PICK_EVAL:
             streamlined = self.get_metadata(req.event.metadata, 'streamlined', str, 'false')
             if streamlined == 'true':
+                if self.get_metadata(req.event.metadata, 'ignore', str, 'false') != 'true' and \
+                    self.get_metadata(req.event.metadata, 'eval_code', str, '') != 'fail_ignore':
+                    self._pick_grasp_count += 1
+                    self._session_grasp_count += 1
+                    print("---------------------------------")
+                    print(f"Pick grasp count: {self._pick_grasp_count}")
+                    print("---------------------------------")
+                    print(f"Session grasp count: {self._session_grasp_count}")
+                    print("---------------------------------")
                 return {'success': True}
             # Close pick event and image bags
             assert self._pick_event_bag is not None
@@ -168,6 +183,7 @@ class DataCollectionNode:
                 f.write(json.dumps({'events': self._pick_events}, indent=4))
             self._pick_events = []
             self._writing_images = []
+            self._pick_grasp_count = 0
 
         # Clean session up if this was a session end event
         if req.event.event_type == Event.EVENT_SESSION_END:
@@ -175,6 +191,7 @@ class DataCollectionNode:
             self._session_event_bag.close()
             self._session_event_bag = None
             self._session_name = None
+            self._session_grasp_count = 0
 
         return {"success": True}
 
@@ -224,7 +241,12 @@ class DataCollectionNode:
                         # print(f'Writing image for {output_topic}')
                         # print(image.header)
                         if input_camera == RecordImageRequest.CAMERA_WRIST:
-                            self._latest_wrist_images.append(image)
+                            cv_im = self.bridge.imgmsg_to_cv2(image)
+                            cv_im = cv2.cvtColor(cv_im, cv2.COLOR_BGR2RGB)
+                            cv_im = cv_im[:,100:1024-100]
+                            cv_im = cv2.resize(cv_im, (224,224))
+                            im_msg = self.bridge.cv2_to_imgmsg(cv_im)
+                            self._latest_wrist_images.append(im_msg)
                         self._pick_image_bag.write(output_topic, image, image.header.stamp)
                     else:
                         rospy.logwarn(f'Failed to get image for {input_camera}')

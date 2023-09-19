@@ -38,6 +38,7 @@ class SegmentEmbeddingsNode:
         self.bin_image_subscriber = rospy.Subscriber('/binCamera', Image, self.bin_image_callback)
     
     def get_embedding_callback(self, req):
+        print("Received request for embedding...")
         if self.bin_image is None:
             return {
                 "success": False,
@@ -47,8 +48,12 @@ class SegmentEmbeddingsNode:
         bin_image = self.bin_image.copy()
         stamp = rospy.Time.now()
         
+        print("Setting image...")
         self.predictor.set_image(bin_image)
-        image_embedding = self.predictor.get_image_embedding().cpu().numpy()
+        print("Getting embedding...")
+        image_embedding = self.predictor.get_image_embedding()
+        print("Moving embedding to cpu...")
+        image_embedding = image_embedding.cpu().numpy()
         image_embedding_list = image_embedding.flatten().tolist()
 
         # bin_image = self.cv_bridge.cv2_to_imgmsg(bin_image)
@@ -57,6 +62,7 @@ class SegmentEmbeddingsNode:
         image_msg.format = "jpeg"
         image_msg.data = np.array(cv2.imencode('.jpg', bin_image)[1]).tostring()
 
+        print("Returning embedding...")
         return {
             "success": True,
             "tensor_shape": image_embedding.shape,
